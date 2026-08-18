@@ -7,6 +7,165 @@
   'use strict';
 
   /* ------------------------------------------------------------------ *
+   * -1. 多言語対応 (i18n)
+   * ------------------------------------------------------------------ */
+
+  let currentLang = 'ja'; // 'ja' | 'en'
+  let refreshLearnUI = null; // 言語切替時にコマンドを学ぶページを再描画するためのフック
+  let refreshBuildUI = null; // 言語切替時に簡単作成ページを再描画するためのフック
+  let refreshNaturalUI = null; // 言語切替時に自然文から作成ページを再描画するためのフック
+
+  // 値が {ja, en} オブジェクトならその言語の文字列を、単なる文字列ならそのまま返す
+  function pick(field) {
+    if (field == null) return '';
+    if (typeof field === 'string') return field;
+    return field[currentLang] != null ? field[currentLang] : field.ja;
+  }
+
+  // UI文言辞書。data-i18n="key" を持つ要素の textContent、
+  // data-i18n-placeholder="key" を持つ要素の placeholder、
+  // data-i18n-aria-label="key" を持つ要素の aria-label に反映される。
+  const UI_STRINGS = {
+    themeToggleAriaLabel: { ja: 'ダークモード切替', en: 'Toggle dark mode' },
+    langToggleAriaLabel: { ja: '言語切替', en: 'Switch language' },
+    modeTabsAriaLabel: { ja: 'モード選択', en: 'Select mode' },
+    tabBuild: { ja: '簡単作成', en: 'Quick Build' },
+    tabLearn: { ja: 'コマンドを学ぶ', en: 'Learn' },
+    tabNatural: { ja: '自然文から作成', en: 'From a Sentence' },
+    heroPrefix: { ja: 'Slackの ', en: "Build Slack's " },
+    heroSuffix: { ja: ' を簡単に作って、楽しく学ぶ。', en: ' the easy way — and have fun learning it.' },
+
+    buildCardTitle: { ja: 'リマインドを作成', en: 'Create a Reminder' },
+    labelTarget: { ja: '宛先', en: 'Send to' },
+    targetChannelBtn: { ja: 'チャンネル', en: 'Channel' },
+    targetUserBtn: { ja: 'ユーザー', en: 'User' },
+    targetMeBtn: { ja: '自分', en: 'Me' },
+    channelPlaceholder: { ja: '#general', en: '#general' },
+    userPlaceholder: { ja: '@tanaka', en: '@username' },
+    hintTargetChannel: { ja: 'チャンネルの全員に向けてリマインドを送ります。「#」は自動的に付きます。', en: 'Sends the reminder to everyone in the channel. The "#" is added automatically.' },
+    hintTargetUser: { ja: 'ユーザー名を「@」から入力してください。', en: 'Enter the username starting with "@".' },
+    hintTargetMe: { ja: '自分自身だけに届くリマインドです。', en: 'A reminder only you will receive.' },
+    labelMessage: { ja: 'メッセージ', en: 'Message' },
+    messagePlaceholder: { ja: '会議資料を確認してください', en: 'Please review the meeting materials' },
+    labelSchedule: { ja: '実行タイミング', en: 'When' },
+    scheduleOnceBtn: { ja: '1回のみ', en: 'Once' },
+    scheduleRepeatBtn: { ja: '繰り返し', en: 'Repeat' },
+    labelDate: { ja: '日付', en: 'Date' },
+    datePickerPlaceholder: { ja: '日付を選択', en: 'Select a date' },
+    labelTime: { ja: '時刻', en: 'Time' },
+    labelRepeatType: { ja: '繰り返しパターン', en: 'Repeat pattern' },
+    repeatDay: { ja: '毎日', en: 'Every day' },
+    repeatWeekday: { ja: '平日(月〜金)', en: 'Weekdays (Mon–Fri)' },
+    repeatWeekend: { ja: '休日(土日)', en: 'Weekends (Sat–Sun)' },
+    repeatWeek: { ja: '毎週', en: 'Weekly' },
+    repeatBiweekly: { ja: '隔週', en: 'Every 2 weeks' },
+    repeatMonth: { ja: '毎月', en: 'Monthly' },
+    repeatYear: { ja: '毎年', en: 'Yearly' },
+    weekdayPickerLabelWeek: { ja: '曜日を選択(複数可)', en: 'Select day(s) of the week' },
+    weekdayPickerLabelBiweekly: { ja: '曜日を選択(隔週で繰り返す曜日)', en: 'Select day(s) (repeats every 2 weeks)' },
+    labelMonthDay: { ja: '日付(毎月の何日)', en: 'Date (day of the month)' },
+    labelYearDate: { ja: '日付(毎年の月日)', en: 'Date (month & day, every year)' },
+    btnReset: { ja: 'リセット', en: 'Reset' },
+    labelExplainTitle: { ja: 'このコマンドの意味', en: 'What this command means' },
+    explainDesc: { ja: '色ごとに「コマンド/宛先/メッセージ/繰り返し/時刻」を表しています。', en: 'Each color represents a part: command / target / message / frequency / time.' },
+    explainPlaceholder: { ja: '宛先・メッセージ・時刻を入力すると、ここに解説が表示されます。', en: 'Fill in the target, message, and time to see the explanation here.' },
+    labelTemplates: { ja: 'よく使うテンプレート', en: 'Quick templates' },
+    templatesDesc: { ja: 'クリックすると左のフォームに反映されます。', en: 'Click one to fill in the form on the left.' },
+    errNoMessage: { ja: '⚠ メッセージを入力してください', en: '⚠ Please enter a message' },
+    errNoUser: { ja: '⚠ ユーザー名を入力してください(例: @tanaka)', en: '⚠ Please enter a username (e.g. @username)' },
+    errNoChannel: { ja: '⚠ チャンネル名を入力してください(例: #general)', en: '⚠ Please enter a channel name (e.g. #general)' },
+    errNoTime: { ja: '⚠ リマインドする時刻を指定してください', en: '⚠ Please specify a time for the reminder' },
+    errNoWeekday: { ja: '⚠ 曜日を1つ以上選択してください', en: '⚠ Please select at least one day of the week' },
+    toastCopied: { ja: '✓ コピーしました', en: '✓ Copied to clipboard' },
+    toastCopiedShort: { ja: '✓ コピー済み', en: '✓ Copied' },
+    toastCopyFailed: { ja: 'コピーに失敗しました', en: 'Copy failed' },
+    toastReset: { ja: 'フォームをリセットしました', en: 'Form has been reset' },
+    btnExplain: { ja: 'コマンドを分解して見る', en: 'Show breakdown' },
+    btnExplainClose: { ja: 'コマンドの分解を閉じる', en: 'Hide breakdown' },
+
+    learnDecomposeTitle: { ja: 'コマンドを分解してみよう', en: 'Break Down a Command' },
+    learnDecomposeDesc: { ja: '下のコマンドの各パーツをクリックすると、意味が表示されます。', en: 'Click each part of the command below to see what it means.' },
+    decomposeEmptyNote: { ja: 'パーツをクリックすると、ここに説明が表示されます', en: 'Click a part above to see its explanation here' },
+    grammarCardsTitle: { ja: '文法カード', en: 'Grammar Cards' },
+    builderTitle: { ja: '文法を組み立ててみよう', en: 'Build Your Own Grammar' },
+    builderDesc: { ja: 'パーツを選ぶと、Slackコマンドの文法が完成します。', en: 'Choose the parts to build a piece of Slack command syntax.' },
+    builderYourPhrase: { ja: 'あなたが作った文法', en: 'The grammar you built' },
+    labelMeaning: { ja: '意味', en: 'Meaning' },
+    dictTitle: { ja: 'Slack Remind 文法辞典', en: 'Slack Remind Glossary' },
+    dictNote: { ja: '※ Slackの仕様は更新される場合があります。個人ユーザー宛のリマインドは現在サポートされていない可能性があるため、実際に使う前に最新のSlackヘルプもご確認ください。', en: "Note: Slack's syntax may change over time, and reminders to individual users may no longer be supported. Please check Slack's latest help docs before relying on this." },
+    dictLabel: { ja: '文法', en: 'Syntax' },
+
+    naturalInputTitle: { ja: '日本語で入力してください', en: 'Type in English' },
+    naturalPlaceholder: { ja: '例：\n毎週金曜日の17時に売上報告を確認', en: 'e.g.\nEvery Friday at 5pm, review the sales report' },
+    btnGenerate: { ja: 'コマンドを生成', en: 'Generate command' },
+    btnClear: { ja: 'クリア', en: 'Clear' },
+    labelSamples: { ja: 'サンプルを試す', en: 'Try a sample' },
+    clarifyTitle: { ja: 'いつリマインドしますか？', en: 'When should this remind you?' },
+    parseResultTitle: { ja: '解析結果', en: 'Parsed result' },
+    parseCellFreq: { ja: '🔄 繰り返し', en: '🔄 Repeats' },
+    parseCellDay: { ja: '📅 曜日/日付', en: '📅 Day/Date' },
+    parseCellTime: { ja: '🕐 時刻', en: '🕐 Time' },
+    parseCellMessage: { ja: '📝 内容', en: '📝 Message' },
+    naturalCouldNotParse: { ja: '内容を読み取れませんでした。もう少し具体的に入力してください。', en: "Couldn't quite parse that — try being a bit more specific." },
+    naturalAmbiguousPrefix: { ja: '「', en: '"' },
+    naturalAmbiguousSuffix: { ja: '」だけでは、いつリマインドすればよいか分かりませんでした。タイミングを選んでください。', en: '" alone doesn\'t tell us when to remind you. Please choose a timing.' },
+    clarifyDaily: { ja: '毎日', en: 'Daily' },
+    clarifyTomorrow: { ja: '明日', en: 'Tomorrow' },
+    clarifyWeekly: { ja: '毎週', en: 'Weekly' },
+    clarifySpecify: { ja: '日時を指定', en: 'Pick date & time' },
+    toastSwitchToBuild: { ja: '「簡単作成」で続きを設定してください', en: 'Continue setting it up in "Quick Build"' },
+
+    generatedCommandLabel: { ja: '生成されたコマンド', en: 'Generated command' },
+    btnCopy: { ja: 'コピー', en: 'Copy' },
+
+    tokenLabelCommand: { ja: 'コマンド', en: 'Command' },
+    tokenLabelTarget: { ja: '宛先', en: 'Target' },
+    tokenLabelMessage: { ja: 'リマインド内容', en: 'Message' },
+    tokenLabelFrequency: { ja: '繰り返し', en: 'Frequency' },
+    tokenLabelTime: { ja: '実行時刻', en: 'Time' },
+
+    freqOnce: { ja: '1回のみ', en: 'One-time' },
+    freqEveryWeek: { ja: '毎週', en: 'Weekly' },
+    freqNext: { ja: '次回', en: 'Next occurrence' },
+    freqEveryDay: { ja: '毎日', en: 'Daily' },
+    freqEveryWeekdayGeneric: { ja: '平日毎日', en: 'Every weekday' },
+    freqEveryMonth: { ja: '毎月', en: 'Monthly' },
+    freqEveryYear: { ja: '毎年', en: 'Yearly' },
+    freqRelative: { ja: '相対時間', en: 'Relative time' },
+    labelToday: { ja: '今日', en: 'Today' },
+    labelTomorrow: { ja: '明日', en: 'Tomorrow' },
+    labelDayAfterTomorrow: { ja: '明後日', en: 'The day after tomorrow' },
+    minutesLater: { ja: '分後', en: ' min later' },
+    hoursLater: { ja: '時間後', en: ' hr later' },
+    defaultValueSuffix: { ja: '(初期値)', en: ' (default)' },
+    calPrevMonth: { ja: '前の月', en: 'Previous month' },
+    calNextMonth: { ja: '次の月', en: 'Next month' },
+    toastTemplateApplied: { ja: '「{label}」を反映しました', en: '"{label}" applied' }
+  };
+
+  function t(key) {
+    const entry = UI_STRINGS[key];
+    if (!entry) return key;
+    return pick(entry);
+  }
+
+  function applyStaticTranslations() {
+    document.documentElement.lang = currentLang;
+    document.querySelectorAll('[data-i18n]').forEach(elNode => {
+      elNode.textContent = t(elNode.getAttribute('data-i18n'));
+    });
+    document.querySelectorAll('[data-i18n-placeholder]').forEach(elNode => {
+      elNode.setAttribute('placeholder', t(elNode.getAttribute('data-i18n-placeholder')));
+    });
+    document.querySelectorAll('[data-i18n-aria-label]').forEach(elNode => {
+      elNode.setAttribute('aria-label', t(elNode.getAttribute('data-i18n-aria-label')));
+    });
+    document.querySelectorAll('.day-chip').forEach(chip => {
+      chip.textContent = weekdayChipLabel(chip.dataset.day);
+    });
+  }
+
+  /* ------------------------------------------------------------------ *
    * 0. 共通データ
    * ------------------------------------------------------------------ */
 
@@ -17,6 +176,12 @@
   const WEEKDAY_JA_LABEL = {
     mon: '月', tue: '火', wed: '水', thu: '木', fri: '金', sat: '土', sun: '日'
   };
+  const WEEKDAY_EN_SHORT_LABEL = {
+    mon: 'Mon', tue: 'Tue', wed: 'Wed', thu: 'Thu', fri: 'Fri', sat: 'Sat', sun: 'Sun'
+  };
+  function weekdayChipLabel(key) {
+    return currentLang === 'en' ? WEEKDAY_EN_SHORT_LABEL[key] : WEEKDAY_JA_LABEL[key];
+  }
   const WEEKDAY_ORDER = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 
   const MONTH_EN = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -33,61 +198,64 @@
   // 自然文の「月」「火」...から Slack の英語曜日名 / 日本語表記を引く
   const KANJI_DAY_TO_KEY = { '月': 'mon', '火': 'tue', '水': 'wed', '木': 'thu', '金': 'fri', '土': 'sat', '日': 'sun' };
   const KANJI_DAY_TO_JP_FULL = { '月': '月曜日', '火': '火曜日', '水': '水曜日', '木': '木曜日', '金': '金曜日', '土': '土曜日', '日': '日曜日' };
+  // 英語の曜日名(小文字) → key
+  const EN_DAY_WORD_TO_KEY = { monday: 'mon', tuesday: 'tue', wednesday: 'wed', thursday: 'thu', friday: 'fri', saturday: 'sat', sunday: 'sun' };
 
   const TARGET_DESC = {
-    channel: 'このチャンネルの全員にリマインドを送ります。',
-    user: '指定したユーザーにリマインドを送ります(※ワークスペースの設定によっては個人宛リマインドが利用できない場合があります)。',
-    me: '自分自身だけに届くリマインドです。'
+    channel: { ja: 'このチャンネルの全員にリマインドを送ります。', en: 'Sends the reminder to everyone in this channel.' },
+    user: { ja: '指定したユーザーにリマインドを送ります(※ワークスペースの設定によっては個人宛リマインドが利用できない場合があります)。', en: 'Sends the reminder to the specified user (individual reminders may not be supported on some workspaces).' },
+    me: { ja: '自分自身だけに届くリマインドです。', en: 'A reminder only you will receive.' }
   };
 
   const TOKEN_DESC = {
-    command: 'これから何かをリマインドする、という命令です。',
-    target: '誰(どこ)にリマインドを送るかを表します。',
-    message: 'リマインドしてほしい内容です。ダブルクォートで囲むと、スペースを含む文章でも正しく認識されます。',
-    frequency: 'いつ・どれくらいの頻度で実行するかを表します。',
-    time: '実行される時刻です(24時間表記)。'
+    command: { ja: 'これから何かをリマインドする、という命令です。', en: 'Tells Slack you want to set a reminder.' },
+    target: { ja: '誰(どこ)にリマインドを送るかを表します。', en: 'Who (or where) the reminder is sent to.' },
+    message: { ja: 'リマインドしてほしい内容です。ダブルクォートで囲むと、スペースを含む文章でも正しく認識されます。', en: 'The content you want to be reminded about. Wrapping it in double quotes keeps multi-word text together.' },
+    frequency: { ja: 'いつ・どれくらいの頻度で実行するかを表します。', en: 'When, or how often, the reminder runs.' },
+    time: { ja: '実行される時刻です(24時間表記)。', en: 'The time the reminder runs (24-hour format).' }
   };
 
   // 文法カード(#10)
   const GRAMMAR_CARDS = [
-    { syntax: 'every Monday', meaning: '毎週月曜日', example: '/remind me "会議" every Monday at 09:00' },
-    { syntax: 'at 09:00', meaning: '午前9時に', example: '/remind me "メール確認" every weekday at 09:00' },
-    { syntax: 'in 30 minutes', meaning: '30分後に', example: '/remind me "休憩してください" in 30 minutes' },
-    { syntax: 'next Monday', meaning: '次の月曜日', example: '/remind me "会議" next Monday at 09:00' }
+    { syntax: 'every Monday', meaning: { ja: '毎週月曜日', en: 'Every Monday' }, example: '/remind me "meeting" every Monday at 09:00' },
+    { syntax: 'at 09:00', meaning: { ja: '午前9時に', en: 'At 9am' }, example: '/remind me "check email" every weekday at 09:00' },
+    { syntax: 'in 30 minutes', meaning: { ja: '30分後に', en: 'In 30 minutes' }, example: '/remind me "take a break" in 30 minutes' },
+    { syntax: 'next Monday', meaning: { ja: '次の月曜日', en: 'Next Monday' }, example: '/remind me "meeting" next Monday at 09:00' }
   ];
 
   // 文法辞典(#11)
   const GRAMMAR_DICT = [
-    { syntax: 'every day', meaning: '毎日', detail: '毎日同じ時刻にリマインドを繰り返します。例: every day at 08:00' },
-    { syntax: 'every weekday', meaning: '平日毎日', detail: '月曜日から金曜日までの平日だけリマインドします。土日はスキップされます。' },
-    { syntax: 'every Monday', meaning: '毎週月曜日', detail: '指定した曜日に毎週リマインドします。他の曜日名(Tuesday, Wednesdayなど)にも置き換えられます。' },
-    { syntax: 'every Friday', meaning: '毎週金曜日', detail: '金曜日に毎週リマインドします。週次レポートの提出などに便利です。' },
-    { syntax: 'every 2 weeks', meaning: '2週間ごと(隔週)', detail: '2週間に1回のペースでリマインドします。隔週ミーティングの準備などに便利です。' },
-    { syntax: 'at 09:00', meaning: '午前9時', detail: '24時間表記で時刻を指定します。"9am" のような12時間表記も利用できます。' },
-    { syntax: 'in 30 minutes', meaning: '30分後', detail: '現在時刻からの相対時間でリマインドします。1回だけ実行されます。' },
-    { syntax: 'in 2 hours', meaning: '2時間後', detail: '相対時間の指定。分・時間の単位で「〇〇後」を表現できます。' },
-    { syntax: 'tomorrow', meaning: '明日', detail: '翌日の同じ時刻、または指定した時刻にリマインドします。1回だけ実行されます。' },
-    { syntax: 'next Monday', meaning: '次の月曜日', detail: '直近の月曜日に1回だけリマインドします。毎週繰り返したい場合は every Monday を使います。' },
-    { syntax: 'next week', meaning: '来週', detail: '来週の同じ曜日にリマインドします。1回だけ実行されます。' }
+    { syntax: 'every day', meaning: { ja: '毎日', en: 'Every day' }, detail: { ja: '毎日同じ時刻にリマインドを繰り返します。例: every day at 08:00', en: 'Repeats the reminder at the same time every day. Example: every day at 08:00' } },
+    { syntax: 'every weekday', meaning: { ja: '平日毎日', en: 'Every weekday' }, detail: { ja: '月曜日から金曜日までの平日だけリマインドします。土日はスキップされます。', en: 'Reminds you only on weekdays, Monday through Friday. Saturdays and Sundays are skipped.' } },
+    { syntax: 'every Monday', meaning: { ja: '毎週月曜日', en: 'Every Monday' }, detail: { ja: '指定した曜日に毎週リマインドします。他の曜日名(Tuesday, Wednesdayなど)にも置き換えられます。', en: 'Reminds you every week on the day you specify. You can swap in other day names (Tuesday, Wednesday, etc.).' } },
+    { syntax: 'every Friday', meaning: { ja: '毎週金曜日', en: 'Every Friday' }, detail: { ja: '金曜日に毎週リマインドします。週次レポートの提出などに便利です。', en: 'Reminds you every Friday. Handy for weekly report submissions.' } },
+    { syntax: 'every 2 weeks', meaning: { ja: '2週間ごと(隔週)', en: 'Every 2 weeks (biweekly)' }, detail: { ja: '2週間に1回のペースでリマインドします。隔週ミーティングの準備などに便利です。', en: 'Reminds you once every two weeks. Handy for biweekly meeting prep.' } },
+    { syntax: 'at 09:00', meaning: { ja: '午前9時', en: '9am' }, detail: { ja: '24時間表記で時刻を指定します。"9am" のような12時間表記も利用できます。', en: 'Specifies the time in 24-hour format. 12-hour formats like "9am" also work.' } },
+    { syntax: 'in 30 minutes', meaning: { ja: '30分後', en: 'In 30 minutes' }, detail: { ja: '現在時刻からの相対時間でリマインドします。1回だけ実行されます。', en: 'Reminds you a relative amount of time from now. Runs only once.' } },
+    { syntax: 'in 2 hours', meaning: { ja: '2時間後', en: 'In 2 hours' }, detail: { ja: '相対時間の指定。分・時間の単位で「〇〇後」を表現できます。', en: 'A relative time offset — express "in X" using minutes or hours.' } },
+    { syntax: 'tomorrow', meaning: { ja: '明日', en: 'Tomorrow' }, detail: { ja: '翌日の同じ時刻、または指定した時刻にリマインドします。1回だけ実行されます。', en: 'Reminds you tomorrow, at the same time or a time you specify. Runs only once.' } },
+    { syntax: 'next Monday', meaning: { ja: '次の月曜日', en: 'Next Monday' }, detail: { ja: '直近の月曜日に1回だけリマインドします。毎週繰り返したい場合は every Monday を使います。', en: 'Reminds you once, on the nearest Monday. Use "every Monday" if you want it weekly.' } },
+    { syntax: 'next week', meaning: { ja: '来週', en: 'Next week' }, detail: { ja: '来週の同じ曜日にリマインドします。1回だけ実行されます。', en: 'Reminds you next week on the same day. Runs only once.' } }
   ];
 
-  // サンプル(#21)
+  // サンプル(#21) — 自然文入力の例。JAとENでは解析エンジンが異なるため、
+  // それぞれの言語として自然な例文を用意する。
   const SAMPLES = [
-    { label: '毎朝', text: '毎朝9時にメールを確認' },
-    { label: '毎週', text: '毎週金曜日の17時に売上報告を確認' },
-    { label: '30分後', text: '30分後に休憩する' },
-    { label: '次回', text: '次の月曜日の10時に会議' }
+    { label: { ja: '毎朝', en: 'Every morning' }, text: { ja: '毎朝9時にメールを確認', en: 'Every morning at 9am, check email' } },
+    { label: { ja: '毎週', en: 'Weekly' }, text: { ja: '毎週金曜日の17時に売上報告を確認', en: 'Every Friday at 5pm, review the sales report' } },
+    { label: { ja: '30分後', en: 'In 30 min' }, text: { ja: '30分後に休憩する', en: 'In 30 minutes, take a break' } },
+    { label: { ja: '次回', en: 'Next time' }, text: { ja: '次の月曜日の10時に会議', en: 'Next Monday at 10am, team meeting' } }
   ];
 
   // 簡単作成モードの「よく使うテンプレート」(#右側パネル)
   // 6種類の繰り返しパターンを一通り体験できるように選定
   const QUICK_TEMPLATES = [
-    { label: '毎朝の朝会', icon: '☀️', meta: '毎日', targetType: 'channel', targetChannel: '#general', message: '朝会の準備をする', scheduleType: 'repeat', repeatType: 'day', time: '09:00' },
-    { label: '退勤前の日報', icon: '📝', meta: '平日', targetType: 'channel', targetChannel: '#general', message: '日報を提出する', scheduleType: 'repeat', repeatType: 'weekday', time: '17:30' },
-    { label: '週次レビュー', icon: '📊', meta: '毎週金', targetType: 'channel', targetChannel: '#team', message: '週次レビューを行う', scheduleType: 'repeat', repeatType: 'week', weekdays: ['fri'], time: '16:00' },
-    { label: '隔週の1on1', icon: '🤝', meta: '隔週月', targetType: 'channel', targetChannel: '#1on1', message: '1on1の準備をする', scheduleType: 'repeat', repeatType: 'biweekly', weekdays: ['mon'], time: '10:00' },
-    { label: '月初の請求処理', icon: '💰', meta: '毎月1日', targetType: 'me', message: '請求書を処理する', scheduleType: 'repeat', repeatType: 'month', monthDay: 1, time: '10:00' },
-    { label: '誕生日のお祝い', icon: '🎂', meta: '毎年8/21', targetType: 'me', message: '誕生日のお祝いメッセージを送る', scheduleType: 'repeat', repeatType: 'year', yearMonth: 8, yearDay: 21, time: '09:00' }
+    { label: { ja: '毎朝の朝会', en: 'Morning standup' }, icon: '☀️', meta: { ja: '毎日', en: 'Daily' }, targetType: 'channel', targetChannel: '#general', message: { ja: '朝会の準備をする', en: 'Prepare for the morning standup' }, scheduleType: 'repeat', repeatType: 'day', time: '09:00' },
+    { label: { ja: '退勤前の日報', en: 'End-of-day report' }, icon: '📝', meta: { ja: '平日', en: 'Weekdays' }, targetType: 'channel', targetChannel: '#general', message: { ja: '日報を提出する', en: 'Submit the daily report' }, scheduleType: 'repeat', repeatType: 'weekday', time: '17:30' },
+    { label: { ja: '週次レビュー', en: 'Weekly review' }, icon: '📊', meta: { ja: '毎週金', en: 'Fridays' }, targetType: 'channel', targetChannel: '#team', message: { ja: '週次レビューを行う', en: 'Run the weekly review' }, scheduleType: 'repeat', repeatType: 'week', weekdays: ['fri'], time: '16:00' },
+    { label: { ja: '隔週の1on1', en: 'Biweekly 1-on-1' }, icon: '🤝', meta: { ja: '隔週月', en: 'Every 2 wks' }, targetType: 'channel', targetChannel: '#1on1', message: { ja: '1on1の準備をする', en: 'Prepare for the 1-on-1' }, scheduleType: 'repeat', repeatType: 'biweekly', weekdays: ['mon'], time: '10:00' },
+    { label: { ja: '月初の請求処理', en: 'Monthly invoicing' }, icon: '💰', meta: { ja: '毎月1日', en: 'Day 1' }, targetType: 'me', message: { ja: '請求書を処理する', en: 'Process the invoices' }, scheduleType: 'repeat', repeatType: 'month', monthDay: 1, time: '10:00' },
+    { label: { ja: '誕生日のお祝い', en: 'Birthday shoutout' }, icon: '🎂', meta: { ja: '毎年8/21', en: 'Aug 21' }, targetType: 'me', message: { ja: '誕生日のお祝いメッセージを送る', en: 'Send a birthday message' }, scheduleType: 'repeat', repeatType: 'year', yearMonth: 8, yearDay: 21, time: '09:00' }
   ];
 
   /* ------------------------------------------------------------------ *
@@ -120,16 +288,23 @@
     return `${pad2(h)}:${pad2(m)}`;
   }
 
-  function timeToJapanese(timeStr) {
+  function timeToLocale(timeStr) {
     if (!timeStr) return '';
     const [h, m] = timeStr.split(':').map(Number);
+    if (currentLang === 'en') {
+      const period = h < 12 ? 'am' : 'pm';
+      let h12 = h % 12;
+      if (h12 === 0) h12 = 12;
+      return `${h12}:${pad2(m)}${period}`;
+    }
     const period = h < 12 ? '午前' : '午後';
     let h12 = h % 12;
     if (h12 === 0) h12 = 12;
     return `${period}${h12}時${m > 0 ? m + '分' : ''}`;
   }
 
-  function durationToJapanese(value) {
+  function durationToLocale(value) {
+    if (currentLang === 'en') return value; // 値自体が既に英語表記 ("30 minutes" など)
     // "30 minutes" -> "30分", "2 hours" -> "2時間"
     const m = value.match(/^(\d+)\s*minutes?$/);
     if (m) return `${m[1]}分`;
@@ -176,7 +351,7 @@
     } else {
       dateFragment = 'today';
     }
-    parts.push({ type: 'time', text: `${dateFragment} at ${time}`, desc: '実行される日時です。' });
+    parts.push({ type: 'time', text: `${dateFragment} at ${time}`, desc: { ja: '実行される日時です。', en: 'The date and time the reminder runs.' } });
     return parts;
   }
 
@@ -189,38 +364,51 @@
     let freqDesc = '';
     switch (state.repeatType) {
       case 'day':
-        freqText = 'every day'; freqDesc = '毎日繰り返します。'; break;
+        freqText = 'every day';
+        freqDesc = { ja: '毎日繰り返します。', en: 'Repeats every day.' };
+        break;
       case 'weekday':
-        freqText = 'every weekday'; freqDesc = '月〜金の平日のみ繰り返します。'; break;
+        freqText = 'every weekday';
+        freqDesc = { ja: '月〜金の平日のみ繰り返します。', en: 'Repeats only on weekdays, Monday through Friday.' };
+        break;
       case 'weekend':
-        freqText = 'every Saturday, Sunday'; freqDesc = '土曜日と日曜日(休日)に繰り返します。'; break;
+        freqText = 'every Saturday, Sunday';
+        freqDesc = { ja: '土曜日と日曜日(休日)に繰り返します。', en: 'Repeats on Saturdays and Sundays.' };
+        break;
       case 'week': {
         const days = state.weekdays.length ? state.weekdays : ['mon'];
         freqText = 'every ' + days.map(d => WEEKDAY_JA_TO_EN[d]).join(', ');
-        freqDesc = `毎週 ${days.map(d => WEEKDAY_JA_LABEL[d]).join('・')}曜日 に繰り返します。`;
+        freqDesc = {
+          ja: `毎週 ${days.map(d => WEEKDAY_JA_LABEL[d]).join('・')}曜日 に繰り返します。`,
+          en: `Repeats every week on ${days.map(d => WEEKDAY_JA_TO_EN[d]).join(', ')}.`
+        };
         break;
       }
       case 'biweekly': {
         const days = state.weekdays.length ? state.weekdays : ['mon'];
         freqText = `every 2 weeks on ${days.map(d => WEEKDAY_JA_TO_EN[d]).join(', ')}`;
-        freqDesc = `2週間に1回、${days.map(d => WEEKDAY_JA_LABEL[d]).join('・')}曜日に繰り返します(隔週)。`;
+        freqDesc = {
+          ja: `2週間に1回、${days.map(d => WEEKDAY_JA_LABEL[d]).join('・')}曜日に繰り返します(隔週)。`,
+          en: `Repeats every 2 weeks on ${days.map(d => WEEKDAY_JA_TO_EN[d]).join(', ')}.`
+        };
         break;
       }
       case 'month': {
         const day = state.monthDay || 1;
         freqText = `on the ${day}${ordinalSuffix(day)} of every month`;
-        freqDesc = `毎月${day}日に繰り返します。`;
+        freqDesc = { ja: `毎月${day}日に繰り返します。`, en: `Repeats on day ${day} of every month.` };
         break;
       }
       case 'year': {
         const month = state.yearMonth || 1;
         const day = state.yearDay || 1;
         freqText = `on ${MONTH_EN[month - 1]} ${day} every year`;
-        freqDesc = `毎年${MONTH_JA[month - 1]}${day}日に繰り返します。`;
+        freqDesc = { ja: `毎年${MONTH_JA[month - 1]}${day}日に繰り返します。`, en: `Repeats every year on ${MONTH_EN[month - 1]} ${day}.` };
         break;
       }
       default:
-        freqText = 'every day'; freqDesc = '毎日繰り返します。';
+        freqText = 'every day';
+        freqDesc = { ja: '毎日繰り返します。', en: 'Repeats every day.' };
     }
     parts.push({ type: 'frequency', text: freqText, desc: freqDesc });
     parts.push({ type: 'time', text: `at ${state.repeatTime || '09:00'}`, desc: TOKEN_DESC.time });
@@ -234,20 +422,20 @@
   function validateForm(state) {
     const errors = {};
     if (!state.message || !state.message.trim()) {
-      errors.message = '⚠ メッセージを入力してください';
+      errors.message = t('errNoMessage');
     }
     if (state.targetType === 'user' && !state.targetUser.trim()) {
-      errors.target = '⚠ ユーザー名を入力してください(例: @tanaka)';
+      errors.target = t('errNoUser');
     }
     if (state.targetType === 'channel' && state.targetChannel.trim().replace(/^#+/, '') === '') {
-      errors.target = '⚠ チャンネル名を入力してください(例: #general)';
+      errors.target = t('errNoChannel');
     }
     if (state.scheduleType === 'once' && !state.onceDate) {
       // 日付未指定は「today」として扱うため必須ではないが、時刻は必須
-      if (!state.onceTime) errors.schedule = '⚠ リマインドする時刻を指定してください';
+      if (!state.onceTime) errors.schedule = t('errNoTime');
     }
     if (state.scheduleType === 'repeat' && (state.repeatType === 'week' || state.repeatType === 'biweekly') && state.weekdays.length === 0) {
-      errors.schedule = '⚠ 曜日を1つ以上選択してください';
+      errors.schedule = t('errNoWeekday');
     }
     return { valid: Object.keys(errors).length === 0, errors };
   }
@@ -300,7 +488,7 @@
     parts.forEach(part => {
       const step = el('div', { class: 'explain-step' }, [
         el('span', { class: 'explain-chip', attrs: { 'data-token': part.type }, text: part.text }),
-        el('span', { class: 'explain-text', text: part.desc })
+        el('span', { class: 'explain-text', text: pick(part.desc) })
       ]);
       container.appendChild(step);
     });
@@ -312,10 +500,10 @@
 
   function copyCommand(text, btnEl) {
     const done = () => {
-      showToast('✓ コピーしました');
+      showToast(t('toastCopied'));
       if (btnEl) {
         const original = btnEl.textContent;
-        btnEl.textContent = '✓ コピー済み';
+        btnEl.textContent = t('toastCopiedShort');
         setTimeout(() => { btnEl.textContent = original; }, 1500);
       }
     };
@@ -333,7 +521,7 @@
     ta.style.opacity = '0';
     document.body.appendChild(ta);
     ta.select();
-    try { document.execCommand('copy'); done(); } catch (e) { showToast('コピーに失敗しました'); }
+    try { document.execCommand('copy'); done(); } catch (e) { showToast(t('toastCopyFailed')); }
     document.body.removeChild(ta);
   }
 
@@ -344,7 +532,8 @@
   const LS_KEYS = {
     darkMode: 'srb_dark_mode',
     mode: 'srb_current_mode',
-    form: 'srb_form_state'
+    form: 'srb_form_state',
+    lang: 'srb_lang'
   };
 
   // 過去バージョンで保存された「最近作ったコマンド」履歴が残っていれば削除する(個人情報保護のため)
@@ -373,8 +562,22 @@
   };
 
   const JP_WEEKDAY_BY_INDEX = ['日', '月', '火', '水', '木', '金', '土'];
+  const EN_WEEKDAY_SHORT_BY_INDEX = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   let onceDatePickerCtrl = null;
   let yearDatePickerCtrl = null;
+
+  // 日付ピッカーのトリガー表示テキストを言語に応じて整形する
+  function formatFullDateDisplay(year, month, day) {
+    const weekdayIdx = new Date(year, month - 1, day).getDay();
+    if (currentLang === 'en') {
+      return `${MONTH_EN[month - 1]} ${day}, ${year} (${EN_WEEKDAY_SHORT_BY_INDEX[weekdayIdx]})`;
+    }
+    return `${year}年${month}月${day}日(${JP_WEEKDAY_BY_INDEX[weekdayIdx]})`;
+  }
+  function formatMonthDayDisplay(month, day) {
+    if (currentLang === 'en') return `${MONTH_EN[month - 1]} ${day}`;
+    return `${month}月${day}日`;
+  }
 
   /* ------------------------------------------------------------------ *
    * カスタム日付ピッカー(ネイティブ <input type="date"> は環境によって
@@ -396,9 +599,9 @@
       popoverEl.innerHTML = '';
 
       const header = el('div', { class: 'cal-header' });
-      const prevBtn = el('button', { class: 'cal-nav', attrs: { type: 'button', 'aria-label': '前の月' }, text: '‹' });
-      const label = el('span', { class: 'cal-label', text: `${viewYear}年${viewMonth}月` });
-      const nextBtn = el('button', { class: 'cal-nav', attrs: { type: 'button', 'aria-label': '次の月' }, text: '›' });
+      const prevBtn = el('button', { class: 'cal-nav', attrs: { type: 'button', 'aria-label': t('calPrevMonth') }, text: '‹' });
+      const label = el('span', { class: 'cal-label', text: currentLang === 'en' ? `${MONTH_EN[viewMonth - 1]} ${viewYear}` : `${viewYear}年${viewMonth}月` });
+      const nextBtn = el('button', { class: 'cal-nav', attrs: { type: 'button', 'aria-label': t('calNextMonth') }, text: '›' });
       prevBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         viewMonth -= 1;
@@ -417,7 +620,8 @@
       popoverEl.appendChild(header);
 
       const grid = el('div', { class: 'cal-grid' });
-      JP_WEEKDAY_BY_INDEX.forEach(w => grid.appendChild(el('div', { class: 'cal-weekday', text: w })));
+      const weekdayRow = currentLang === 'en' ? EN_WEEKDAY_SHORT_BY_INDEX : JP_WEEKDAY_BY_INDEX;
+      weekdayRow.forEach(w => grid.appendChild(el('div', { class: 'cal-weekday', text: w })));
 
       const firstWeekday = new Date(viewYear, viewMonth - 1, 1).getDay(); // 0=日
       const total = daysInMonth(viewYear, viewMonth);
@@ -521,16 +725,18 @@
     const messageError = document.getElementById('messageError');
 
     // 「毎月」用の日付セレクトの選択肢を組み立てる(毎年はカレンダーピッカーを使う)
-    function populateNumberOptions(selectEl, count, suffix) {
+    function populateNumberOptions(selectEl, count) {
+      const prevValue = selectEl.value;
       selectEl.innerHTML = '';
       for (let i = 1; i <= count; i++) {
         const opt = document.createElement('option');
         opt.value = String(i);
-        opt.textContent = `${i}${suffix}`;
+        opt.textContent = currentLang === 'en' ? `${i}${ordinalSuffix(i)}` : `${i}日`;
         selectEl.appendChild(opt);
       }
+      if (prevValue) selectEl.value = prevValue;
     }
-    populateNumberOptions(monthDaySelect, 31, '日');
+    populateNumberOptions(monthDaySelect, 31);
 
     // 「1回のみ」の日付ピッカー(年月日+曜日を表示)
     onceDatePickerCtrl = createCalendarPicker({
@@ -540,8 +746,7 @@
       mode: 'full',
       onSelect: (value) => {
         buildState.onceDate = `${value.year}-${pad2(value.month)}-${pad2(value.day)}`;
-        const weekday = JP_WEEKDAY_BY_INDEX[new Date(value.year, value.month - 1, value.day).getDay()];
-        onceDateTriggerText.textContent = `${value.year}年${value.month}月${value.day}日(${weekday})`;
+        onceDateTriggerText.textContent = formatFullDateDisplay(value.year, value.month, value.day);
         onceDateTriggerText.classList.remove('is-placeholder');
         renderBuild();
       }
@@ -556,7 +761,7 @@
       onSelect: (value) => {
         buildState.yearMonth = value.month;
         buildState.yearDay = value.day;
-        yearDateTriggerText.textContent = `${value.month}月${value.day}日`;
+        yearDateTriggerText.textContent = formatMonthDayDisplay(value.month, value.day);
         renderBuild();
       }
     });
@@ -577,10 +782,10 @@
       buildState.targetChannel = targetChannelInput.value;
       buildState.targetUser = targetUserInput.value;
       targetHint.textContent = buildState.targetType === 'channel'
-        ? 'チャンネルの全員に向けてリマインドを送ります。「#」は自動的に付きます。'
+        ? t('hintTargetChannel')
         : buildState.targetType === 'user'
-          ? '「@」は自動的に付きます。続けてユーザー名を入力してください。'
-          : '自分自身だけに届くリマインドです。';
+          ? t('hintTargetUser')
+          : t('hintTargetMe');
       renderBuild();
     }));
 
@@ -688,14 +893,13 @@
       const [y, m, d] = buildState.onceDate.split('-').map(Number);
       const parsed = new Date(y, (m || 1) - 1, d || 1);
       if (!isNaN(parsed.getTime())) {
-        const weekday = JP_WEEKDAY_BY_INDEX[parsed.getDay()];
-        onceDateTriggerText.textContent = `${y}年${m}月${d}日(${weekday})`;
+        onceDateTriggerText.textContent = formatFullDateDisplay(y, m, d);
         onceDateTriggerText.classList.remove('is-placeholder');
         onceDatePickerCtrl.setSelected({ year: y, month: m, day: d });
       }
     }
     monthDaySelect.value = String(buildState.monthDay || 1);
-    yearDateTriggerText.textContent = `${buildState.yearMonth || 1}月${buildState.yearDay || 1}日`;
+    yearDateTriggerText.textContent = formatMonthDayDisplay(buildState.yearMonth || 1, buildState.yearDay || 1);
 
     // --- よく使うテンプレート ---
     function applyTemplate(tpl) {
@@ -712,14 +916,14 @@
         buildState.targetUser = targetUserInput.value;
       }
       targetHint.textContent = tpl.targetType === 'channel'
-        ? 'チャンネルの全員に向けてリマインドを送ります。「#」は自動的に付きます。'
+        ? t('hintTargetChannel')
         : tpl.targetType === 'user'
-          ? 'ユーザー名を「@」から入力してください。'
-          : '自分自身だけに届くリマインドです。';
+          ? t('hintTargetUser')
+          : t('hintTargetMe');
 
       // メッセージ
-      messageInput.value = tpl.message;
-      buildState.message = tpl.message;
+      messageInput.value = pick(tpl.message);
+      buildState.message = pick(tpl.message);
 
       // 実行タイミング
       buildState.scheduleType = tpl.scheduleType;
@@ -741,7 +945,7 @@
         if (tpl.yearMonth && tpl.yearDay) {
           buildState.yearMonth = tpl.yearMonth;
           buildState.yearDay = tpl.yearDay;
-          yearDateTriggerText.textContent = `${tpl.yearMonth}月${tpl.yearDay}日`;
+          yearDateTriggerText.textContent = formatMonthDayDisplay(tpl.yearMonth, tpl.yearDay);
           yearDatePickerCtrl.setSelected({ month: tpl.yearMonth, day: tpl.yearDay });
         }
 
@@ -755,23 +959,51 @@
 
       updateScheduleAvailability();
       renderBuild();
-      showToast(`「${tpl.label}」を反映しました`);
+      showToast(t('toastTemplateApplied').replace('{label}', pick(tpl.label)));
     }
 
     const templateListEl = document.getElementById('templateList');
-    QUICK_TEMPLATES.forEach(tpl => {
-      const item = el('button', { class: 'template-item', attrs: { type: 'button' } }, [
-        el('span', { class: 'template-item-icon', text: tpl.icon }),
-        el('span', { class: 'template-item-label', text: tpl.label }),
-        el('span', { class: 'template-item-meta', text: tpl.meta })
-      ]);
-      item.addEventListener('click', () => applyTemplate(tpl));
-      templateListEl.appendChild(item);
-    });
+    function renderTemplateList() {
+      templateListEl.innerHTML = '';
+      QUICK_TEMPLATES.forEach(tpl => {
+        const item = el('button', { class: 'template-item', attrs: { type: 'button' } }, [
+          el('span', { class: 'template-item-icon', text: tpl.icon }),
+          el('span', { class: 'template-item-label', text: pick(tpl.label) }),
+          el('span', { class: 'template-item-meta', text: pick(tpl.meta) })
+        ]);
+        item.addEventListener('click', () => applyTemplate(tpl));
+        templateListEl.appendChild(item);
+      });
+    }
+    renderTemplateList();
 
     updateRepeatSubFieldsVisibility();
     updateScheduleAvailability();
     renderBuild();
+
+    refreshBuildUI = () => {
+      // targetHint は data-i18n による静的な再翻訳(チャンネル用の文言)で
+      // 上書きされてしまうため、現在選択中の宛先タイプに応じて再設定する
+      targetHint.textContent = buildState.targetType === 'channel'
+        ? t('hintTargetChannel')
+        : buildState.targetType === 'user'
+          ? t('hintTargetUser')
+          : t('hintTargetMe');
+
+      // 日付ピッカー・毎月の日にちセレクトを現在の言語で再描画する(選択値は維持)
+      populateNumberOptions(monthDaySelect, 31);
+      monthDaySelect.value = String(buildState.monthDay || 1);
+      if (buildState.onceDate) {
+        const [y, m, d] = buildState.onceDate.split('-').map(Number);
+        onceDateTriggerText.textContent = formatFullDateDisplay(y, m, d);
+      } else {
+        onceDateTriggerText.textContent = t('datePickerPlaceholder');
+      }
+      yearDateTriggerText.textContent = formatMonthDayDisplay(buildState.yearMonth || 1, buildState.yearDay || 1);
+
+      renderTemplateList();
+      renderBuild();
+    };
   }
 
   function resetForm() {
@@ -855,9 +1087,9 @@
     container.innerHTML = '';
     SAMPLES.forEach(sample => {
       const item = el('button', { class: 'sample-item', attrs: { type: 'button' } });
-      item.appendChild(el('span', { class: 'sample-label', text: sample.label }));
-      item.appendChild(document.createTextNode(sample.text));
-      item.addEventListener('click', () => onPick(sample.text));
+      item.appendChild(el('span', { class: 'sample-label', text: pick(sample.label) }));
+      item.appendChild(document.createTextNode(pick(sample.text)));
+      item.addEventListener('click', () => onPick(pick(sample.text)));
       container.appendChild(item);
     });
   }
@@ -869,64 +1101,77 @@
   const DECOMPOSE_EXAMPLE = [
     { type: 'command', text: '/remind', desc: TOKEN_DESC.command },
     { type: 'target', text: '#general', desc: TOKEN_DESC.target },
-    { type: 'message', text: '"会議資料を確認"', desc: TOKEN_DESC.message },
-    { type: 'frequency', text: 'every Monday', desc: '毎週月曜日に繰り返す、という意味です。' },
+    { type: 'message', text: { ja: '"会議資料を確認"', en: '"review meeting notes"' }, desc: TOKEN_DESC.message },
+    { type: 'frequency', text: 'every Monday', desc: { ja: '毎週月曜日に繰り返す、という意味です。', en: 'Means it repeats every Monday.' } },
     { type: 'time', text: 'at 09:00', desc: TOKEN_DESC.time }
   ];
 
   const DECOMPOSE_LABEL = {
-    command: 'コマンド', target: '宛先', message: 'リマインド内容', frequency: '繰り返し', time: '実行時刻'
+    command: 'tokenLabelCommand', target: 'tokenLabelTarget', message: 'tokenLabelMessage',
+    frequency: 'tokenLabelFrequency', time: 'tokenLabelTime'
   };
 
   function initLearnMode() {
-    // --- コマンド分解 ---
     const row = document.getElementById('decomposeRow');
     const detail = document.getElementById('decomposeDetail');
-
-    row.innerHTML = '';
-
-    DECOMPOSE_EXAMPLE.forEach((part, i) => {
-      const chip = el('button', {
-        class: 'decompose-chip',
-        attrs: { type: 'button', 'data-token': part.type },
-        text: part.text
-      });
-      chip.addEventListener('click', () => {
-        row.querySelectorAll('.decompose-chip').forEach(c => c.classList.remove('is-selected'));
-        chip.classList.add('is-selected');
-        detail.innerHTML = '';
-        detail.appendChild(el('strong', { text: `${part.text} → ${DECOMPOSE_LABEL[part.type]}` }));
-        detail.appendChild(el('span', { text: part.desc }));
-      });
-      row.appendChild(chip);
-    });
-
-    // --- 文法カード ---
+    const sourceTextEl = document.getElementById('decomposeSourceText');
     const cardsContainer = document.getElementById('grammarCards');
-    cardsContainer.innerHTML = '';
-    GRAMMAR_CARDS.forEach(card => {
-      cardsContainer.appendChild(el('div', { class: 'grammar-card' }, [
-        el('div', { class: 'grammar-syntax', text: card.syntax }),
-        el('div', { class: 'grammar-meaning', text: card.meaning }),
-        el('code', { class: 'grammar-example', text: card.example })
-      ]));
-    });
-
-    // --- 文法辞典 ---
     const dictTable = document.getElementById('dictTable');
     const dictDetail = document.getElementById('dictDetail');
-    dictTable.innerHTML = '';
-    GRAMMAR_DICT.forEach(entry => {
-      const rowBtn = el('button', { class: 'dict-row', attrs: { type: 'button' } }, [
-        el('span', { class: 'dict-syntax', text: entry.syntax }),
-        el('span', { class: 'dict-meaning', text: entry.meaning })
-      ]);
-      rowBtn.addEventListener('click', () => {
-        dictDetail.textContent = entry.detail;
-        dictDetail.classList.add('is-visible');
+
+    // --- コマンド分解 ---
+    function renderDecompose() {
+      sourceTextEl.textContent = DECOMPOSE_EXAMPLE.map(p => pick(p.text)).join(' ');
+      row.innerHTML = '';
+      detail.innerHTML = '';
+      detail.appendChild(el('p', { class: 'empty-note', text: t('decomposeEmptyNote') }));
+
+      DECOMPOSE_EXAMPLE.forEach(part => {
+        const chip = el('button', {
+          class: 'decompose-chip',
+          attrs: { type: 'button', 'data-token': part.type },
+          text: pick(part.text)
+        });
+        chip.addEventListener('click', () => {
+          row.querySelectorAll('.decompose-chip').forEach(c => c.classList.remove('is-selected'));
+          chip.classList.add('is-selected');
+          detail.innerHTML = '';
+          detail.appendChild(el('strong', { text: `${pick(part.text)} → ${t(DECOMPOSE_LABEL[part.type])}` }));
+          detail.appendChild(el('span', { text: pick(part.desc) }));
+        });
+        row.appendChild(chip);
       });
-      dictTable.appendChild(rowBtn);
-    });
+    }
+
+    // --- 文法カード ---
+    function renderGrammarCards() {
+      cardsContainer.innerHTML = '';
+      GRAMMAR_CARDS.forEach(card => {
+        cardsContainer.appendChild(el('div', { class: 'grammar-card' }, [
+          el('div', { class: 'grammar-syntax', text: card.syntax }),
+          el('div', { class: 'grammar-meaning', text: pick(card.meaning) }),
+          el('code', { class: 'grammar-example', text: card.example })
+        ]));
+      });
+    }
+
+    // --- 文法辞典 ---
+    function renderGrammarDict() {
+      dictTable.innerHTML = '';
+      dictDetail.classList.remove('is-visible');
+      dictDetail.textContent = '';
+      GRAMMAR_DICT.forEach(entry => {
+        const rowBtn = el('button', { class: 'dict-row', attrs: { type: 'button' } }, [
+          el('span', { class: 'dict-syntax', text: entry.syntax }),
+          el('span', { class: 'dict-meaning', text: pick(entry.meaning) })
+        ]);
+        rowBtn.addEventListener('click', () => {
+          dictDetail.textContent = pick(entry.detail);
+          dictDetail.classList.add('is-visible');
+        });
+        dictTable.appendChild(rowBtn);
+      });
+    }
 
     // --- 文法組み立てインタラクティブ ---
     const buildEvery = document.getElementById('buildEvery');
@@ -942,41 +1187,42 @@
     // 「in」なのに曜日が選べてしまう、といった不整合を防ぐ。
     const DAY_OPTIONS_BY_KEYWORD = {
       every: [
-        { value: 'day', label: 'day(毎日)' },
-        { value: 'weekday', label: 'weekday(平日)' },
-        { value: 'Monday', label: 'Monday(月曜日)' },
-        { value: 'Tuesday', label: 'Tuesday(火曜日)' },
-        { value: 'Wednesday', label: 'Wednesday(水曜日)' },
-        { value: 'Thursday', label: 'Thursday(木曜日)' },
-        { value: 'Friday', label: 'Friday(金曜日)' },
-        { value: 'Saturday', label: 'Saturday(土曜日)' },
-        { value: 'Sunday', label: 'Sunday(日曜日)' }
+        { value: 'day', jaSuffix: '毎日' },
+        { value: 'weekday', jaSuffix: '平日' },
+        { value: 'Monday', jaSuffix: '月曜日' },
+        { value: 'Tuesday', jaSuffix: '火曜日' },
+        { value: 'Wednesday', jaSuffix: '水曜日' },
+        { value: 'Thursday', jaSuffix: '木曜日' },
+        { value: 'Friday', jaSuffix: '金曜日' },
+        { value: 'Saturday', jaSuffix: '土曜日' },
+        { value: 'Sunday', jaSuffix: '日曜日' }
       ],
       next: [
-        { value: 'Monday', label: 'Monday(月曜日)' },
-        { value: 'Tuesday', label: 'Tuesday(火曜日)' },
-        { value: 'Wednesday', label: 'Wednesday(水曜日)' },
-        { value: 'Thursday', label: 'Thursday(木曜日)' },
-        { value: 'Friday', label: 'Friday(金曜日)' },
-        { value: 'Saturday', label: 'Saturday(土曜日)' },
-        { value: 'Sunday', label: 'Sunday(日曜日)' }
+        { value: 'Monday', jaSuffix: '月曜日' },
+        { value: 'Tuesday', jaSuffix: '火曜日' },
+        { value: 'Wednesday', jaSuffix: '水曜日' },
+        { value: 'Thursday', jaSuffix: '木曜日' },
+        { value: 'Friday', jaSuffix: '金曜日' },
+        { value: 'Saturday', jaSuffix: '土曜日' },
+        { value: 'Sunday', jaSuffix: '日曜日' }
       ],
       in: [
-        { value: '15 minutes', label: '15 minutes(15分後)' },
-        { value: '30 minutes', label: '30 minutes(30分後)' },
-        { value: '1 hour', label: '1 hour(1時間後)' },
-        { value: '2 hours', label: '2 hours(2時間後)' }
+        { value: '15 minutes', jaSuffix: '15分後' },
+        { value: '30 minutes', jaSuffix: '30分後' },
+        { value: '1 hour', jaSuffix: '1時間後' },
+        { value: '2 hours', jaSuffix: '2時間後' }
       ],
       at: [] // at は時刻だけで完結するため2つ目のセレクトは使わない
     };
 
     function populateDayOptions(keyword) {
       const options = DAY_OPTIONS_BY_KEYWORD[keyword] || [];
+      const prevValue = buildDay.value;
       buildDay.innerHTML = '';
       options.forEach(opt => {
         const optionEl = document.createElement('option');
         optionEl.value = opt.value;
-        optionEl.textContent = opt.label;
+        optionEl.textContent = currentLang === 'en' ? opt.value : `${opt.value}(${opt.jaSuffix})`;
         buildDay.appendChild(optionEl);
       });
       buildDayWrap.classList.toggle('is-hidden', options.length === 0);
@@ -988,6 +1234,7 @@
       const time = buildTime.value;
       let phrase = '';
       let meaning = '';
+      const isEn = currentLang === 'en';
 
       // 「in」のときは時刻(at HH:MM)を使わないので非表示にする
       buildTimeWrap.classList.toggle('is-hidden', kw === 'in');
@@ -995,26 +1242,26 @@
       if (kw === 'in') {
         const value = dayVal || '30 minutes';
         phrase = `in ${value}`;
-        meaning = `${durationToJapanese(value)}後に実行`;
+        meaning = isEn ? `Runs in ${durationToLocale(value)}` : `${durationToLocale(value)}後に実行`;
       } else if (kw === 'at') {
         phrase = `at ${time}`;
-        meaning = `${timeToJapanese(time)}に実行`;
+        meaning = isEn ? `Runs at ${timeToLocale(time)}` : `${timeToLocale(time)}に実行`;
       } else if (kw === 'next') {
         const dayLabel = dayVal || 'Monday';
         phrase = `next ${dayLabel} at ${time}`;
-        meaning = `次の${dayEnToJaFull(dayLabel)}の${timeToJapanese(time)}に実行`;
+        meaning = isEn ? `Runs next ${dayEnToLocaleFull(dayLabel)} at ${timeToLocale(time)}` : `次の${dayEnToLocaleFull(dayLabel)}の${timeToLocale(time)}に実行`;
       } else {
         // every
         if (dayVal === 'day') {
           phrase = `every day at ${time}`;
-          meaning = `毎日${timeToJapanese(time)}に実行`;
+          meaning = isEn ? `Runs every day at ${timeToLocale(time)}` : `毎日${timeToLocale(time)}に実行`;
         } else if (dayVal === 'weekday') {
           phrase = `every weekday at ${time}`;
-          meaning = `平日毎日${timeToJapanese(time)}に実行`;
+          meaning = isEn ? `Runs every weekday at ${timeToLocale(time)}` : `平日毎日${timeToLocale(time)}に実行`;
         } else {
           const dayLabel = dayVal || 'Monday';
           phrase = `every ${dayLabel} at ${time}`;
-          meaning = `毎週${dayEnToJaFull(dayLabel)}の${timeToJapanese(time)}に実行`;
+          meaning = isEn ? `Runs every ${dayEnToLocaleFull(dayLabel)} at ${timeToLocale(time)}` : `毎週${dayEnToLocaleFull(dayLabel)}の${timeToLocale(time)}に実行`;
         }
       }
       phraseOutput.textContent = phrase;
@@ -1030,9 +1277,17 @@
 
     populateDayOptions(buildEvery.value);
     updateBuilderPhrase();
+    refreshLearnUI = () => {
+      renderDecompose();
+      renderGrammarCards();
+      renderGrammarDict();
+      updateBuilderPhrase();
+    };
+    refreshLearnUI();
   }
 
-  function dayEnToJaFull(enDay) {
+  function dayEnToLocaleFull(enDay) {
+    if (currentLang === 'en') return enDay;
     const map = {
       Monday: '月曜日', Tuesday: '火曜日', Wednesday: '水曜日', Thursday: '木曜日',
       Friday: '金曜日', Saturday: '土曜日', Sunday: '日曜日'
@@ -1121,6 +1376,86 @@
     return null;
   }
 
+  // ---- 英語版の自然文解析ヘルパー ----
+
+  function stripFillerWordsEN(str) {
+    let s = (str || '').trim();
+    for (let i = 0; i < 3; i++) {
+      const before = s;
+      s = s.replace(/^(please\s+)?remind\s+me\s+to\s+/i, '');
+      s = s.replace(/^(please|to|that|for)\s+/i, '');
+      s = s.replace(/^[,.\s]+/, '');
+      s = s.replace(/[,.\s]+$/, '');
+      if (s === before) break;
+    }
+    return s.replace(/\s{2,}/g, ' ').trim();
+  }
+
+  // 時刻表現を抽出する(英語)。「at」が前についていれば一緒に取り除く。
+  function extractTimeEN(text) {
+    let m;
+    if ((m = text.match(/\b(?:at\s+)?(\d{1,2}):(\d{2})\s*(am|pm)\b/i))) {
+      let h = parseInt(m[1], 10) % 12;
+      if (/pm/i.test(m[3])) h += 12;
+      return { hour: h, minute: parseInt(m[2], 10), matchText: m[0] };
+    }
+    if ((m = text.match(/\b(?:at\s+)?(\d{1,2})\s*(am|pm)\b/i))) {
+      let h = parseInt(m[1], 10) % 12;
+      if (/pm/i.test(m[2])) h += 12;
+      return { hour: h, minute: 0, matchText: m[0] };
+    }
+    if ((m = text.match(/\b(?:at\s+)?([01]?\d|2[0-3]):([0-5]\d)\b/))) {
+      return { hour: parseInt(m[1], 10), minute: parseInt(m[2], 10), matchText: m[0] };
+    }
+    return null;
+  }
+
+  // 頻度・曜日・相対表現を抽出する(英語)
+  function extractFrequencyEN(text) {
+    let m;
+    const DAY = '(monday|tuesday|wednesday|thursday|friday|saturday|sunday)';
+    if ((m = text.match(new RegExp(`\\bevery\\s+${DAY}\\b`, 'i')))) {
+      return { kind: 'every-weekday', dayKey: EN_DAY_WORD_TO_KEY[m[1].toLowerCase()], matchText: m[0] };
+    }
+    if ((m = text.match(new RegExp(`\\bnext\\s+${DAY}\\b`, 'i')))) {
+      return { kind: 'next-weekday', dayKey: EN_DAY_WORD_TO_KEY[m[1].toLowerCase()], matchText: m[0] };
+    }
+    if ((m = text.match(/\bevery\s+week\b/i))) {
+      return { kind: 'every-week', matchText: m[0] };
+    }
+    if ((m = text.match(/\bevery\s+(?:day|morning|evening|night)\b/i))) {
+      return { kind: 'every-day', matchText: m[0] };
+    }
+    if ((m = text.match(/\bevery\s+weekday\b|\bon\s+weekdays\b|\bweekdays\b/i))) {
+      return { kind: 'every-weekday-generic', matchText: m[0] };
+    }
+    if ((m = text.match(/\bevery\s+month\b/i))) {
+      return { kind: 'every-month', matchText: m[0] };
+    }
+    if ((m = text.match(/\bevery\s+year\b/i))) {
+      return { kind: 'every-year', matchText: m[0] };
+    }
+    if ((m = text.match(/\bin\s+(\d+)\s*(?:minutes?|mins?)\b/i))) {
+      return { kind: 'in-minutes', value: parseInt(m[1], 10), matchText: m[0] };
+    }
+    if ((m = text.match(/\bin\s+(\d+)\s*(?:hours?|hrs?)\b/i))) {
+      return { kind: 'in-hours', value: parseInt(m[1], 10), matchText: m[0] };
+    }
+    if ((m = text.match(/\bday after tomorrow\b/i))) {
+      return { kind: 'in-2-days', matchText: m[0] };
+    }
+    if ((m = text.match(/\btomorrow\b/i))) {
+      return { kind: 'tomorrow', matchText: m[0] };
+    }
+    if ((m = text.match(/\btoday\b/i))) {
+      return { kind: 'today', matchText: m[0] };
+    }
+    if ((m = text.match(new RegExp(`\\b${DAY}\\b`, 'i')))) {
+      return { kind: 'bare-weekday', dayKey: EN_DAY_WORD_TO_KEY[m[1].toLowerCase()], matchText: m[0] };
+    }
+    return null;
+  }
+
   function parseNaturalLanguage(rawInput, explicitTarget) {
     const input = (rawInput || '').trim();
     if (!input) return { ok: false, reason: 'empty' };
@@ -1179,7 +1514,7 @@
         case 'next-weekday': {
           const en = WEEKDAY_JA_TO_EN[freqMatch.dayKey];
           fragment = `next ${en}` + (time ? ` at ${time}` : '');
-          freqLabel = '次回'; weekdayLabel = dayEnToJaFull(en);
+          freqLabel = '次回'; weekdayLabel = dayEnToLocaleFull(en);
           break;
         }
         case 'every-week':
@@ -1225,7 +1560,7 @@
         case 'bare-weekday': {
           const en = WEEKDAY_JA_TO_EN[freqMatch.dayKey];
           fragment = `${en}` + (time ? ` at ${time}` : '');
-          freqLabel = '1回のみ'; weekdayLabel = dayEnToJaFull(en);
+          freqLabel = '1回のみ'; weekdayLabel = dayEnToLocaleFull(en);
           break;
         }
         default:
@@ -1253,13 +1588,144 @@
     };
   }
 
+  // ---- 英語版: 自然文から作成(#18の英語対応) ----
+  function parseNaturalLanguageEN(rawInput, explicitTarget) {
+    const input = (rawInput || '').trim();
+    if (!input) return { ok: false, reason: 'empty' };
+
+    let target = 'me';
+    let textAfterTarget = input;
+    if (explicitTarget && explicitTarget.type !== 'me' && explicitTarget.value && explicitTarget.value.length > 1) {
+      target = explicitTarget.value;
+    } else {
+      const channelMatch = input.match(/#([a-zA-Z0-9_-]+)/);
+      if (channelMatch) {
+        target = `#${channelMatch[1]}`;
+        textAfterTarget = input.replace(channelMatch[0], '');
+      }
+    }
+
+    // 1. 時刻を抽出して取り除く("at"も一緒に)
+    const timeMatch = extractTimeEN(textAfterTarget);
+    let textAfterTime = textAfterTarget;
+    if (timeMatch) {
+      textAfterTime = textAfterTarget.replace(timeMatch.matchText, ' ');
+    }
+
+    // 2. 頻度・曜日・相対表現を抽出して取り除く
+    const freqMatch = extractFrequencyEN(textAfterTime);
+    let remainder = textAfterTime;
+    if (freqMatch) {
+      remainder = remainder.replace(freqMatch.matchText, ' ');
+    }
+
+    // 3. 残りをメッセージとして整形
+    const message = stripFillerWordsEN(remainder);
+
+    if (!freqMatch && !timeMatch) {
+      return { ok: false, reason: 'ambiguous', message: stripFillerWordsEN(remainder || input) };
+    }
+    if (!message) {
+      return { ok: false, reason: 'no-message', message: '' };
+    }
+
+    const time = timeMatch ? formatTime(timeMatch.hour, timeMatch.minute) : null;
+    let fragment = '';
+    let freqLabel = t('freqOnce');
+    let weekdayLabel = '-';
+
+    if (freqMatch) {
+      switch (freqMatch.kind) {
+        case 'every-weekday':
+          fragment = `every ${WEEKDAY_JA_TO_EN[freqMatch.dayKey]}` + (time ? ` at ${time}` : '');
+          freqLabel = t('freqEveryWeek'); weekdayLabel = WEEKDAY_JA_TO_EN[freqMatch.dayKey];
+          break;
+        case 'next-weekday': {
+          const en = WEEKDAY_JA_TO_EN[freqMatch.dayKey];
+          fragment = `next ${en}` + (time ? ` at ${time}` : '');
+          freqLabel = t('freqNext'); weekdayLabel = en;
+          break;
+        }
+        case 'every-week':
+          fragment = 'every week' + (time ? ` at ${time}` : '');
+          freqLabel = t('freqEveryWeek');
+          break;
+        case 'every-day':
+          fragment = 'every day' + (time ? ` at ${time}` : '');
+          freqLabel = t('freqEveryDay');
+          break;
+        case 'every-weekday-generic':
+          fragment = 'every weekday' + (time ? ` at ${time}` : '');
+          freqLabel = t('freqEveryWeekdayGeneric');
+          break;
+        case 'every-month':
+          fragment = 'every month' + (time ? ` at ${time}` : '');
+          freqLabel = t('freqEveryMonth');
+          break;
+        case 'every-year':
+          fragment = 'every year' + (time ? ` at ${time}` : '');
+          freqLabel = t('freqEveryYear');
+          break;
+        case 'in-minutes':
+          fragment = `in ${freqMatch.value} minutes`;
+          freqLabel = t('freqRelative'); weekdayLabel = `${freqMatch.value}${t('minutesLater')}`;
+          break;
+        case 'in-hours':
+          fragment = `in ${freqMatch.value} hours`;
+          freqLabel = t('freqRelative'); weekdayLabel = `${freqMatch.value}${t('hoursLater')}`;
+          break;
+        case 'in-2-days':
+          fragment = 'in 2 days' + (time ? ` at ${time}` : '');
+          freqLabel = t('freqOnce'); weekdayLabel = t('labelDayAfterTomorrow');
+          break;
+        case 'tomorrow':
+          fragment = 'tomorrow' + (time ? ` at ${time}` : '');
+          freqLabel = t('freqOnce'); weekdayLabel = t('labelTomorrow');
+          break;
+        case 'today':
+          fragment = 'today' + (time ? ` at ${time}` : '');
+          freqLabel = t('freqOnce'); weekdayLabel = t('labelToday');
+          break;
+        case 'bare-weekday': {
+          const en = WEEKDAY_JA_TO_EN[freqMatch.dayKey];
+          fragment = `${en}` + (time ? ` at ${time}` : '');
+          freqLabel = t('freqOnce'); weekdayLabel = en;
+          break;
+        }
+        default:
+          fragment = time ? `today at ${time}` : 'today';
+      }
+    } else if (time) {
+      fragment = `today at ${time}`;
+      freqLabel = t('freqOnce'); weekdayLabel = t('labelToday');
+    }
+
+    const parts = [
+      { type: 'command', text: '/remind', desc: TOKEN_DESC.command },
+      { type: 'target', text: target, desc: target === 'me' ? TARGET_DESC.me : (target.startsWith('#') ? TARGET_DESC.channel : TARGET_DESC.user) },
+      { type: 'message', text: `"${message}"`, desc: TOKEN_DESC.message },
+      { type: 'frequency', text: fragment, desc: { ja: '入力された英語から自動的に読み取った実行タイミングです。', en: 'The timing automatically parsed from your English sentence.' } }
+    ];
+
+    return {
+      ok: true,
+      parts,
+      message,
+      freqLabel,
+      weekdayLabel,
+      timeLabel: time ? time : `09:00${t('defaultValueSuffix')}`
+    };
+  }
+
   // 将来 AI API に差し替えるためのフック(#18)
   // 例: window.parseNaturalLanguageImpl = parseNaturalLanguageWithAI;
   function parseNaturalLanguageEntry(text, explicitTarget) {
     if (typeof window.parseNaturalLanguageImpl === 'function') {
       return window.parseNaturalLanguageImpl(text, explicitTarget);
     }
-    return parseNaturalLanguage(text, explicitTarget);
+    return currentLang === 'en'
+      ? parseNaturalLanguageEN(text, explicitTarget)
+      : parseNaturalLanguage(text, explicitTarget);
   }
 
   function initNaturalMode() {
@@ -1328,7 +1794,7 @@
         return;
       }
       if (!result.ok) {
-        showToast('内容を読み取れませんでした。もう少し具体的に入力してください。');
+        showToast(t('naturalCouldNotParse'));
         clarifyCard.style.display = 'none';
         resultCard.style.display = 'none';
         return;
@@ -1340,14 +1806,20 @@
     function showClarify(message, originalText) {
       resultCard.style.display = 'none';
       clarifyCard.style.display = 'block';
-      clarifyText.textContent = `「${message || originalText}」だけでは、いつリマインドすればよいか分かりませんでした。タイミングを選んでください。`;
+      const subject = message || originalText;
+      clarifyText.textContent = `${t('naturalAmbiguousPrefix')}${subject}${t('naturalAmbiguousSuffix')}`;
       clarifyOptions.innerHTML = '';
 
-      const options = [
-        { label: '毎日', build: () => `毎日9時に${message || originalText}` },
-        { label: '明日', build: () => `明日9時に${message || originalText}` },
-        { label: '毎週', build: () => `毎週月曜日の9時に${message || originalText}` },
-        { label: '日時を指定', build: null }
+      const options = currentLang === 'en' ? [
+        { label: t('clarifyDaily'), build: () => `every day at 9am ${subject}` },
+        { label: t('clarifyTomorrow'), build: () => `tomorrow at 9am ${subject}` },
+        { label: t('clarifyWeekly'), build: () => `every Monday at 9am ${subject}` },
+        { label: t('clarifySpecify'), build: null }
+      ] : [
+        { label: t('clarifyDaily'), build: () => `毎日9時に${subject}` },
+        { label: t('clarifyTomorrow'), build: () => `明日9時に${subject}` },
+        { label: t('clarifyWeekly'), build: () => `毎週月曜日の9時に${subject}` },
+        { label: t('clarifySpecify'), build: null }
       ];
 
       options.forEach(opt => {
@@ -1359,11 +1831,11 @@
             runParse(newText);
           } else {
             // 「日時を指定」→ 簡単作成モードへ切り替えてメッセージを引き継ぐ
-            buildState.message = message || originalText;
+            buildState.message = subject;
             switchMode('build');
             document.getElementById('messageInput').value = buildState.message;
             document.getElementById('messageInput').dispatchEvent(new Event('input'));
-            showToast('「簡単作成」で続きを設定してください');
+            showToast(t('toastSwitchToBuild'));
           }
         });
         clarifyOptions.appendChild(btn);
@@ -1375,20 +1847,31 @@
       parseResult.innerHTML = '';
 
       const cells = [
-        { icon: '🔄', label: '繰り返し', value: result.freqLabel },
-        { icon: '📅', label: '曜日/日付', value: result.weekdayLabel || '-' },
-        { icon: '🕐', label: '時刻', value: result.timeLabel },
-        { icon: '📝', label: '内容', value: result.message }
+        { label: t('parseCellFreq'), value: result.freqLabel },
+        { label: t('parseCellDay'), value: result.weekdayLabel || '-' },
+        { label: t('parseCellTime'), value: result.timeLabel },
+        { label: t('parseCellMessage'), value: result.message }
       ];
       cells.forEach(c => {
         parseResult.appendChild(el('div', { class: 'parse-cell' }, [
-          el('div', { class: 'parse-cell-label', text: `${c.icon} ${c.label}` }),
+          el('div', { class: 'parse-cell-label', text: c.label }),
           el('div', { class: 'parse-cell-value', text: c.value })
         ]));
       });
 
       renderCommandCard(naturalOutput, result.parts);
     }
+
+    refreshNaturalUI = () => {
+      renderSampleList('sampleListNatural', (text) => {
+        input.value = text;
+        runParse(text);
+      });
+      // 表示中の解析結果・確認カードは切り替え前の言語の内容なので、
+      // 誤解を防ぐためいったん隠す(入力テキスト自体はそのまま残す)
+      clarifyCard.style.display = 'none';
+      resultCard.style.display = 'none';
+    };
   }
 
   /* ------------------------------------------------------------------ *
@@ -1438,10 +1921,38 @@
   }
 
   /* ------------------------------------------------------------------ *
+   * 12. 言語切替 (JA / EN)
+   * ------------------------------------------------------------------ */
+
+  function initLanguageToggle() {
+    const toggle = document.getElementById('langToggle');
+    const options = toggle.querySelectorAll('.lang-toggle-option');
+
+    function updateToggleVisual() {
+      options.forEach(o => o.classList.toggle('is-active', o.dataset.langOpt === currentLang));
+    }
+    updateToggleVisual();
+
+    toggle.addEventListener('click', () => {
+      currentLang = currentLang === 'ja' ? 'en' : 'ja';
+      try { localStorage.setItem(LS_KEYS.lang, currentLang); } catch (e) { /* noop */ }
+      updateToggleVisual();
+      applyStaticTranslations();
+      if (refreshBuildUI) refreshBuildUI();
+      if (refreshLearnUI) refreshLearnUI();
+      if (refreshNaturalUI) refreshNaturalUI();
+    });
+  }
+
+  /* ------------------------------------------------------------------ *
    * 13. 初期化
    * ------------------------------------------------------------------ */
 
   document.addEventListener('DOMContentLoaded', () => {
+    // 言語設定は他のどの描画よりも先に確定させる(最初の描画から正しい言語にするため)
+    try { currentLang = localStorage.getItem(LS_KEYS.lang) || 'ja'; } catch (e) { /* noop */ }
+    applyStaticTranslations();
+
     purgeLegacyHistory();
     loadFormState();
     initModeTabs();
@@ -1449,6 +1960,7 @@
     initBuildMode();
     initLearnMode();
     initNaturalMode();
+    initLanguageToggle();
   });
 
 })();
