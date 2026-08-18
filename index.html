@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Slack Remind Builder — Slackの /remind を簡単に作って、楽しく学ぶ。</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ============ HEADER ============ -->
+<header class="site-header">
+  <div class="header-inner">
+    <div class="brand">
+      <span class="brand-mark">⏰</span>
+      <span class="brand-name">Slack Remind Builder</span>
+    </div>
+    <button id="themeToggle" class="theme-toggle" type="button" aria-label="ダークモード切替">
+      <span class="theme-icon">🌙</span>
+    </button>
+  </div>
+</header>
+
+<!-- ============ HERO ============ -->
+<section class="hero" id="topHero">
+  <p class="hero-sub">Slackの <span class="hero-mono">/remind</span> を簡単に作って、楽しく学ぶ。</p>
+</section>
+
+<!-- ============ MODE TABS ============ -->
+<nav class="mode-tabs" role="tablist" aria-label="モード選択">
+  <button class="tab-btn is-active" data-mode="build" role="tab" aria-selected="true" type="button">
+    <span class="tab-icon">⚡</span><span class="tab-label">簡単作成</span>
+  </button>
+  <button class="tab-btn" data-mode="learn" role="tab" aria-selected="false" type="button">
+    <span class="tab-icon">📖</span><span class="tab-label">コマンドを学ぶ</span>
+  </button>
+  <button class="tab-btn" data-mode="natural" role="tab" aria-selected="false" type="button">
+    <span class="tab-icon">✨</span><span class="tab-label">自然文から作成</span>
+  </button>
+</nav>
+
+<main class="app-main">
+
+  <!-- ================================================================ -->
+  <!-- MODE 1: 簡単作成 -->
+  <!-- ================================================================ -->
+  <section class="mode-panel is-active" id="panel-build" role="tabpanel">
+
+    <div class="panel-grid">
+      <!-- FORM -->
+      <div class="card form-card">
+        <h2 class="card-title">リマインドを作成</h2>
+
+        <div class="field-group">
+          <label class="field-label">宛先</label>
+          <div class="segmented" id="targetType">
+            <button type="button" class="seg-btn is-active" data-target="channel">チャンネル</button>
+            <button type="button" class="seg-btn" data-target="user">ユーザー</button>
+            <button type="button" class="seg-btn" data-target="me">自分</button>
+          </div>
+          <input type="text" id="targetChannel" class="text-input target-input" placeholder="#general" value="#">
+          <input type="text" id="targetUser" class="text-input target-input is-hidden" placeholder="@tanaka">
+          <p class="field-hint" id="targetHint">チャンネルに向けてリマインドを送ります。</p>
+        </div>
+
+        <div class="field-group">
+          <label class="field-label" for="messageInput">メッセージ</label>
+          <textarea id="messageInput" class="text-area" rows="3" placeholder="会議資料を確認してください"></textarea>
+          <p class="field-error" id="messageError"></p>
+        </div>
+
+        <div class="field-group">
+          <label class="field-label">実行タイミング</label>
+          <div class="segmented" id="scheduleType">
+            <button type="button" class="seg-btn is-active" data-schedule="once">1回のみ</button>
+            <button type="button" class="seg-btn" data-schedule="repeat">繰り返し</button>
+          </div>
+        </div>
+
+        <!-- ONCE -->
+        <div class="field-group schedule-block" id="onceBlock">
+          <div class="field-group">
+            <label class="field-label" for="onceDateTrigger">日付</label>
+            <div class="date-picker" id="onceDatePickerWrap">
+              <button type="button" class="text-input date-picker-trigger" id="onceDateTrigger">
+                <span id="onceDateTriggerText" class="date-picker-trigger-text is-placeholder">日付を選択</span>
+                <span class="date-picker-icon">📅</span>
+              </button>
+              <div class="date-picker-popover is-hidden" id="onceDatePopover"></div>
+            </div>
+          </div>
+          <div class="field-group">
+            <label class="field-label" for="onceTime">時刻</label>
+            <input type="time" id="onceTime" class="text-input" value="09:00">
+          </div>
+        </div>
+
+        <!-- REPEAT -->
+        <div class="field-group schedule-block is-hidden" id="repeatBlock">
+          <div class="field-group">
+            <label class="field-label" for="repeatType">繰り返しパターン</label>
+            <select id="repeatType" class="select-input select-block">
+              <option value="day">毎日</option>
+              <option value="weekday">平日(月〜金)</option>
+              <option value="weekend">休日(土日)</option>
+              <option value="week">毎週</option>
+              <option value="biweekly">隔週</option>
+              <option value="month">毎月</option>
+              <option value="year">毎年</option>
+            </select>
+          </div>
+
+          <div id="weekdayPicker" class="weekday-picker is-hidden">
+            <label class="field-label" id="weekdayPickerLabel">曜日を選択(複数可)</label>
+            <div class="day-chips">
+              <button type="button" class="day-chip" data-day="mon">月</button>
+              <button type="button" class="day-chip" data-day="tue">火</button>
+              <button type="button" class="day-chip" data-day="wed">水</button>
+              <button type="button" class="day-chip" data-day="thu">木</button>
+              <button type="button" class="day-chip" data-day="fri">金</button>
+              <button type="button" class="day-chip" data-day="sat">土</button>
+              <button type="button" class="day-chip" data-day="sun">日</button>
+            </div>
+          </div>
+
+          <div id="monthDayPicker" class="field-group is-hidden">
+            <label class="field-label" for="monthDaySelect">日付(毎月の何日)</label>
+            <select id="monthDaySelect" class="select-input select-block"></select>
+          </div>
+
+          <div id="yearDatePicker" class="field-group is-hidden">
+            <label class="field-label" for="yearDateTrigger">日付(毎年の月日)</label>
+            <div class="date-picker" id="yearDatePickerWrap">
+              <button type="button" class="text-input date-picker-trigger" id="yearDateTrigger">
+                <span id="yearDateTriggerText" class="date-picker-trigger-text">1月1日</span>
+                <span class="date-picker-icon">📅</span>
+              </button>
+              <div class="date-picker-popover is-hidden" id="yearDatePopover"></div>
+            </div>
+          </div>
+
+          <div class="field-group">
+            <label class="field-label" for="repeatTime">時刻</label>
+            <input type="time" id="repeatTime" class="text-input" value="09:00">
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button type="button" class="btn btn-ghost" id="resetFormBtn">リセット</button>
+        </div>
+      </div>
+
+      <!-- PREVIEW -->
+      <div class="preview-col">
+        <div id="buildOutput"></div>
+
+        <div class="card live-explain-card">
+          <h3 class="card-subtitle">このコマンドの意味</h3>
+          <p class="card-desc">色ごとに「コマンド/宛先/メッセージ/繰り返し/時刻」を表しています。</p>
+          <div class="explain-block" id="liveExplainBlock"></div>
+        </div>
+
+        <div class="card template-card">
+          <h3 class="card-subtitle">よく使うテンプレート</h3>
+          <p class="card-desc">クリックすると左のフォームに反映されます。</p>
+          <div class="template-list" id="templateList"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================================================================ -->
+  <!-- MODE 2: コマンドを学ぶ -->
+  <!-- ================================================================ -->
+  <section class="mode-panel" id="panel-learn" role="tabpanel">
+
+    <div class="card">
+      <h2 class="card-title">コマンドを分解してみよう</h2>
+      <p class="card-desc">下のコマンドの各パーツをクリックすると、意味が表示されます。</p>
+
+      <div class="decompose-source">
+        <code id="decomposeSourceText">/remind #general "会議資料を確認" every Monday at 09:00</code>
+      </div>
+
+      <div class="decompose-row" id="decomposeRow"></div>
+      <div class="decompose-detail" id="decomposeDetail">
+        <p class="empty-note">パーツをクリックすると、ここに説明が表示されます</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2 class="card-title">文法カード</h2>
+      <div class="grammar-cards" id="grammarCards"></div>
+    </div>
+
+    <div class="card">
+      <h2 class="card-title">文法を組み立ててみよう</h2>
+      <p class="card-desc">パーツを選ぶと、Slackコマンドの文法が完成します。</p>
+
+      <div class="builder-row">
+        <select id="buildEvery" class="select-input">
+          <option value="every">every</option>
+          <option value="in">in</option>
+          <option value="next">next</option>
+          <option value="at">at</option>
+        </select>
+        <span id="buildDayWrap">
+          <select id="buildDay" class="select-input"></select>
+        </span>
+        <span id="buildTimeWrap" class="builder-time-wrap">
+          <span class="builder-connector">at</span>
+          <select id="buildTime" class="select-input">
+            <option value="09:00">09:00</option>
+            <option value="10:00">10:00</option>
+            <option value="12:00">12:00</option>
+            <option value="17:00">17:00</option>
+            <option value="18:30">18:30</option>
+          </select>
+        </span>
+      </div>
+
+      <div class="builder-result">
+        <p class="field-label">あなたが作った文法</p>
+        <code id="builderPhrase" class="phrase-output">every Monday at 09:00</code>
+        <p class="field-label">意味</p>
+        <p id="builderMeaning" class="meaning-output">毎週月曜日の午前9時</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2 class="card-title">Slack Remind 文法辞典</h2>
+      <div class="dict-table" id="dictTable"></div>
+      <div class="dict-detail" id="dictDetail"></div>
+      <p class="field-hint dict-note">※ Slackの仕様は更新される場合があります。個人ユーザー宛のリマインドは現在サポートされていない可能性があるため、実際に使う前に最新のSlackヘルプもご確認ください。</p>
+    </div>
+
+  </section>
+
+  <!-- ================================================================ -->
+  <!-- MODE 3: 自然文から作成 -->
+  <!-- ================================================================ -->
+  <section class="mode-panel" id="panel-natural" role="tabpanel">
+
+    <div class="card">
+      <h2 class="card-title">日本語で入力してください</h2>
+
+      <div class="field-group">
+        <label class="field-label">宛先</label>
+        <div class="segmented" id="naturalTargetType">
+          <button type="button" class="seg-btn is-active" data-target="channel">チャンネル</button>
+          <button type="button" class="seg-btn" data-target="user">ユーザー</button>
+          <button type="button" class="seg-btn" data-target="me">自分</button>
+        </div>
+        <input type="text" id="naturalTargetChannel" class="text-input target-input" placeholder="#general" value="#">
+        <input type="text" id="naturalTargetUser" class="text-input target-input is-hidden" placeholder="@tanaka" value="@">
+      </div>
+
+      <textarea id="naturalInput" class="text-area natural-textarea" rows="3"
+        placeholder="例：&#10;毎週金曜日の17時に売上報告を確認"></textarea>
+      <div class="form-actions">
+        <button type="button" class="btn btn-primary" id="naturalParseBtn">コマンドを生成</button>
+        <button type="button" class="btn btn-ghost" id="naturalClearBtn">クリア</button>
+      </div>
+
+      <div class="sample-card sample-inline">
+        <h3 class="card-subtitle">サンプルを試す</h3>
+        <div class="sample-list" id="sampleListNatural"></div>
+      </div>
+    </div>
+
+    <div class="card" id="naturalClarifyCard" style="display:none;">
+      <h2 class="card-title">いつリマインドしますか？</h2>
+      <p class="card-desc" id="naturalClarifyText"></p>
+      <div class="clarify-options" id="naturalClarifyOptions"></div>
+    </div>
+
+    <div class="card" id="naturalResultCard" style="display:none;">
+      <h2 class="card-title">解析結果</h2>
+      <div class="parse-result" id="parseResult"></div>
+      <div id="naturalOutput"></div>
+    </div>
+
+  </section>
+
+</main>
+
+<!-- ============ TOAST ============ -->
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<!-- ============ TEMPLATES (used by script.js) ============ -->
+<template id="tpl-command-card">
+  <div class="command-card">
+    <div class="command-card-head">
+      <span class="command-card-label">生成されたコマンド</span>
+      <button type="button" class="btn btn-copy">コピー</button>
+    </div>
+    <div class="command-card-body">
+      <code class="command-text"></code>
+    </div>
+    <button type="button" class="btn btn-link btn-explain">コマンドを分解して見る</button>
+    <div class="explain-block is-hidden"></div>
+  </div>
+</template>
+
+<script src="script.js"></script>
+</body>
+</html>
