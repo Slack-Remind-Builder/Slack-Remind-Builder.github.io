@@ -73,6 +73,13 @@
         <div class="field-group">
           <label class="field-label" for="messageInput" data-i18n="labelMessage">メッセージ</label>
           <textarea id="messageInput" class="text-area" rows="3" data-i18n-placeholder="messagePlaceholder" placeholder="会議資料を確認してください"></textarea>
+          <div class="mention-insert-row" id="mentionInsertRow">
+            <span class="mention-insert-label" data-i18n="mentionInsertLabel">特殊通知をメッセージに挿入:</span>
+            <button type="button" class="mention-chip" data-mention="@here">@here</button>
+            <button type="button" class="mention-chip" data-mention="@channel">@channel</button>
+            <button type="button" class="mention-chip" data-mention="@everyone">@everyone</button>
+          </div>
+          <p class="field-hint" data-i18n="mentionInsertHint">@here/@channelはチャンネルの全メンバーに通知します。@everyoneは #general チャンネルでのみ利用できます。</p>
           <p class="field-error" id="messageError"></p>
         </div>
 

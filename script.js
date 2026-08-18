@@ -43,6 +43,8 @@
     channelPlaceholder: { ja: '#general', en: '#general' },
     userPlaceholder: { ja: '@tanaka', en: '@username' },
     hintTargetChannel: { ja: 'チャンネルの全員に向けてリマインドを送ります。「#」は自動的に付きます。', en: 'Sends the reminder to everyone in the channel. The "#" is added automatically.' },
+    mentionInsertLabel: { ja: '特殊通知をメッセージに挿入:', en: 'Insert a special mention:' },
+    mentionInsertHint: { ja: '@here/@channelはチャンネルの全メンバーに通知します。@everyoneは #general チャンネルでのみ利用できます。', en: '@here/@channel notify everyone in the channel. @everyone only works in the #general channel.' },
     hintTargetUser: { ja: 'ユーザー名を「@」から入力してください。', en: 'Enter the username starting with "@".' },
     hintTargetMe: { ja: '自分自身だけに届くリマインドです。', en: 'A reminder only you will receive.' },
     labelMessage: { ja: 'メッセージ', en: 'Message' },
@@ -703,6 +705,8 @@
     const targetChannelInput = document.getElementById('targetChannel');
     const targetUserInput = document.getElementById('targetUser');
     const targetHint = document.getElementById('targetHint');
+    const mentionInsertRow = document.getElementById('mentionInsertRow');
+    const mentionChips = document.querySelectorAll('.mention-chip');
     const messageInput = document.getElementById('messageInput');
     const scheduleBtns = document.querySelectorAll('#scheduleType .seg-btn');
     const onceBlock = document.getElementById('onceBlock');
@@ -773,6 +777,7 @@
       buildState.targetType = btn.dataset.target;
       targetChannelInput.classList.toggle('is-hidden', buildState.targetType !== 'channel');
       targetUserInput.classList.toggle('is-hidden', buildState.targetType !== 'user');
+      mentionInsertRow.classList.toggle('is-hidden', buildState.targetType !== 'channel');
       if (buildState.targetType === 'channel' && !targetChannelInput.value) {
         targetChannelInput.value = '#';
       }
@@ -786,6 +791,23 @@
         : buildState.targetType === 'user'
           ? t('hintTargetUser')
           : t('hintTargetMe');
+      renderBuild();
+    }));
+
+    mentionChips.forEach(chip => chip.addEventListener('click', () => {
+      const mention = chip.dataset.mention;
+      const start = messageInput.selectionStart != null ? messageInput.selectionStart : messageInput.value.length;
+      const end = messageInput.selectionEnd != null ? messageInput.selectionEnd : messageInput.value.length;
+      const before = messageInput.value.slice(0, start);
+      const after = messageInput.value.slice(end);
+      // 直前が空白や文頭でなければ、スペースを挟んでから挿入する
+      const needsLeadingSpace = before.length > 0 && !/\s$/.test(before);
+      const insertText = (needsLeadingSpace ? ' ' : '') + mention + ' ';
+      messageInput.value = before + insertText + after;
+      const caretPos = (before + insertText).length;
+      messageInput.focus();
+      messageInput.setSelectionRange(caretPos, caretPos);
+      buildState.message = messageInput.value;
       renderBuild();
     }));
 
@@ -908,6 +930,7 @@
       targetTypeBtns.forEach(b => b.classList.toggle('is-active', b.dataset.target === tpl.targetType));
       targetChannelInput.classList.toggle('is-hidden', tpl.targetType !== 'channel');
       targetUserInput.classList.toggle('is-hidden', tpl.targetType !== 'user');
+      mentionInsertRow.classList.toggle('is-hidden', tpl.targetType !== 'channel');
       if (tpl.targetType === 'channel') {
         targetChannelInput.value = tpl.targetChannel || '#';
         buildState.targetChannel = targetChannelInput.value;
