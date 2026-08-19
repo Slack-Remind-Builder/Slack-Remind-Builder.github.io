@@ -197,7 +197,7 @@
       </div>
 
       <div class="decompose-row" id="decomposeRow"></div>
-      <div class="decompose-detail" id="decomposeDetail">
+      <div class="decompose-detail" id="decomposeDetail" aria-live="polite">
         <p class="empty-note" data-i18n="decomposeEmptyNote">パーツをクリックすると、ここに説明が表示されます</p>
       </div>
     </div>
@@ -233,7 +233,7 @@
         </span>
       </div>
 
-      <div class="builder-result">
+      <div class="builder-result" aria-live="polite">
         <p class="field-label" data-i18n="builderYourPhrase">あなたが作った文法</p>
         <code id="builderPhrase" class="phrase-output">every Monday at 09:00</code>
         <p class="field-label" data-i18n="labelMeaning">意味</p>
@@ -244,7 +244,7 @@
     <div class="card">
       <h2 class="card-title" data-i18n="dictTitle">Slack Remind 文法辞典</h2>
       <div class="dict-table" id="dictTable"></div>
-      <div class="dict-detail" id="dictDetail"></div>
+      <div class="dict-detail" id="dictDetail" aria-live="polite"></div>
       <p class="field-hint dict-note" data-i18n="dictNote">※ Slackの仕様は更新される場合があります。個人ユーザー宛のリマインドは現在サポートされていない可能性があるため、実際に使う前に最新のSlackヘルプもご確認ください。</p>
     </div>
 

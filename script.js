@@ -28,6 +28,7 @@
   const UI_STRINGS = {
     themeToggleAriaLabel: { ja: 'ダークモード切替', en: 'Toggle dark mode' },
     langToggleAriaLabel: { ja: '言語切替', en: 'Switch language' },
+    langToggleAriaLabelCurrent: { ja: '言語切替(現在: 日本語)', en: 'Switch language (current: English)' },
     modeTabsAriaLabel: { ja: 'モード選択', en: 'Select mode' },
     tabBuild: { ja: '簡単作成', en: 'Quick Build' },
     tabLearn: { ja: 'コマンドを学ぶ', en: 'Learn' },
@@ -277,6 +278,17 @@
     return node;
   }
 
+  // トグル式ボタン(宛先・実行タイミング・曜日チップなど)の選択状態を、
+  // 見た目(is-active)とスクリーンリーダー向け(aria-pressed)の両方に反映する。
+  // アクセシビリティ改善: 色だけでなく aria-pressed でも状態を伝える。
+  function setPressed(elNode, isActive) {
+    elNode.classList.toggle('is-active', isActive);
+    elNode.setAttribute('aria-pressed', String(!!isActive));
+  }
+  function setPressedGroup(buttons, predicate) {
+    buttons.forEach(b => setPressed(b, predicate(b)));
+  }
+
   function showToast(message) {
     const toast = document.getElementById('toast');
     toast.textContent = message;
@@ -472,15 +484,18 @@
       explainBtn.remove();
       explainBlock.remove();
     } else {
+      explainBtn.setAttribute('aria-expanded', 'false');
       explainBtn.addEventListener('click', () => {
         const isHidden = explainBlock.classList.contains('is-hidden');
         if (isHidden) {
           explainCommand(parts, explainBlock);
           explainBlock.classList.remove('is-hidden');
-          explainBtn.textContent = 'コマンドの分解を閉じる';
+          explainBtn.textContent = t('btnExplainClose');
+          explainBtn.setAttribute('aria-expanded', 'true');
         } else {
           explainBlock.classList.add('is-hidden');
-          explainBtn.textContent = 'コマンドを分解して見る';
+          explainBtn.textContent = t('btnExplain');
+          explainBtn.setAttribute('aria-expanded', 'false');
         }
       });
     }
@@ -642,7 +657,11 @@
         const classes = ['cal-day'];
         if (isToday) classes.push('is-today');
         if (isSelected) classes.push('is-selected');
-        const dayBtn = el('button', { class: classes.join(' '), attrs: { type: 'button' }, text: String(d) });
+        const dayBtn = el('button', {
+          class: classes.join(' '),
+          attrs: isSelected ? { type: 'button', 'aria-current': 'date' } : { type: 'button' },
+          text: String(d)
+        });
         dayBtn.addEventListener('click', (e) => {
           e.stopPropagation();
           selected = mode === 'full' ? { year: viewYear, month: viewMonth, day: d } : { month: viewMonth, day: d };
@@ -658,9 +677,14 @@
       document.querySelectorAll('.date-picker-popover').forEach(p => { if (p !== popoverEl) p.classList.add('is-hidden'); });
       render();
       popoverEl.classList.remove('is-hidden');
+      triggerBtn.setAttribute('aria-expanded', 'true');
     }
-    function closePopover() {
+    function closePopover(opts = {}) {
+      const wasOpen = !popoverEl.classList.contains('is-hidden');
       popoverEl.classList.add('is-hidden');
+      triggerBtn.setAttribute('aria-expanded', 'false');
+      // Escキーで閉じた時だけ、トリガーボタンにフォーカスを戻す(キーボード操作で迷子にならないように)
+      if (wasOpen && opts.returnFocus) triggerBtn.focus();
     }
     function togglePopover(e) {
       e.stopPropagation();
@@ -668,12 +692,16 @@
       if (popoverEl.classList.contains('is-hidden')) openPopover(); else closePopover();
     }
 
+    triggerBtn.setAttribute('aria-haspopup', 'dialog');
+    triggerBtn.setAttribute('aria-expanded', 'false');
+    if (popoverEl.id) triggerBtn.setAttribute('aria-controls', popoverEl.id);
+    popoverEl.setAttribute('role', 'group');
     triggerBtn.addEventListener('click', togglePopover);
     document.addEventListener('click', (e) => {
       if (!popoverEl.contains(e.target) && e.target !== triggerBtn && !triggerBtn.contains(e.target)) closePopover();
     });
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') closePopover();
+      if (e.key === 'Escape') closePopover({ returnFocus: true });
     });
 
     return {
@@ -775,8 +803,7 @@
     yearDatePickerCtrl.setSelected({ month: buildState.yearMonth || 1, day: buildState.yearDay || 1 });
 
     targetTypeBtns.forEach(btn => btn.addEventListener('click', () => {
-      targetTypeBtns.forEach(b => b.classList.remove('is-active'));
-      btn.classList.add('is-active');
+      setPressedGroup(targetTypeBtns, b => b === btn);
       buildState.targetType = btn.dataset.target;
       targetChannelInput.classList.toggle('is-hidden', buildState.targetType !== 'channel');
       targetUserInput.classList.toggle('is-hidden', buildState.targetType !== 'user');
@@ -851,15 +878,14 @@
       const isWeekLike = type === 'week' || type === 'biweekly';
       weekdayPicker.classList.toggle('is-hidden', !isWeekLike);
       weekdayPickerLabel.textContent = type === 'biweekly'
-        ? '曜日を選択(隔週で繰り返す曜日)'
-        : '曜日を選択(複数可)';
+        ? t('weekdayPickerLabelBiweekly')
+        : t('weekdayPickerLabelWeek');
       monthDayPicker.classList.toggle('is-hidden', type !== 'month');
       yearDatePicker.classList.toggle('is-hidden', type !== 'year');
     }
 
     scheduleBtns.forEach(btn => btn.addEventListener('click', () => {
-      scheduleBtns.forEach(b => b.classList.remove('is-active'));
-      btn.classList.add('is-active');
+      setPressedGroup(scheduleBtns, b => b === btn);
       buildState.scheduleType = btn.dataset.schedule;
       onceBlock.classList.toggle('is-hidden', buildState.scheduleType !== 'once');
       repeatBlock.classList.toggle('is-hidden', buildState.scheduleType !== 'repeat');
@@ -882,7 +908,7 @@
     dayChips.forEach(chip => chip.addEventListener('click', () => {
       if (chip.disabled) return;
       const day = chip.dataset.day;
-      chip.classList.toggle('is-active');
+      setPressed(chip, !chip.classList.contains('is-active'));
       if (buildState.weekdays.includes(day)) {
         buildState.weekdays = buildState.weekdays.filter(d => d !== day);
       } else {
@@ -965,7 +991,7 @@
     function applyTemplate(tpl) {
       // 宛先
       buildState.targetType = tpl.targetType;
-      targetTypeBtns.forEach(b => b.classList.toggle('is-active', b.dataset.target === tpl.targetType));
+      setPressedGroup(targetTypeBtns, b => b.dataset.target === tpl.targetType);
       targetChannelInput.classList.toggle('is-hidden', tpl.targetType !== 'channel');
       targetUserInput.classList.toggle('is-hidden', tpl.targetType !== 'user');
       mentionInsertRow.classList.toggle('is-hidden', tpl.targetType !== 'channel');
@@ -988,7 +1014,7 @@
 
       // 実行タイミング
       buildState.scheduleType = tpl.scheduleType;
-      scheduleBtns.forEach(b => b.classList.toggle('is-active', b.dataset.schedule === tpl.scheduleType));
+      setPressedGroup(scheduleBtns, b => b.dataset.schedule === tpl.scheduleType);
       onceBlock.classList.toggle('is-hidden', tpl.scheduleType !== 'once');
       repeatBlock.classList.toggle('is-hidden', tpl.scheduleType !== 'repeat');
 
@@ -997,7 +1023,7 @@
         repeatTypeSelect.value = tpl.repeatType;
 
         buildState.weekdays = tpl.weekdays ? [...tpl.weekdays] : [];
-        dayChips.forEach(chip => chip.classList.toggle('is-active', buildState.weekdays.includes(chip.dataset.day)));
+        setPressedGroup(dayChips, chip => buildState.weekdays.includes(chip.dataset.day));
 
         if (tpl.monthDay) {
           buildState.monthDay = tpl.monthDay;
@@ -1037,6 +1063,10 @@
       });
     }
     renderTemplateList();
+
+    // 初期表示時点でも aria-pressed が正しい状態になるよう同期する
+    setPressedGroup(targetTypeBtns, b => b.classList.contains('is-active'));
+    setPressedGroup(scheduleBtns, b => b.classList.contains('is-active'));
 
     updateRepeatSubFieldsVisibility();
     updateScheduleAvailability();
@@ -1087,9 +1117,9 @@
     document.getElementById('messageInput').value = '';
     document.getElementById('onceTime').value = '09:00';
     document.getElementById('repeatTime').value = '09:00';
-    document.querySelectorAll('.day-chip').forEach(c => c.classList.remove('is-active'));
-    document.querySelectorAll('#targetType .seg-btn').forEach((b, i) => b.classList.toggle('is-active', i === 0));
-    document.querySelectorAll('#scheduleType .seg-btn').forEach((b, i) => b.classList.toggle('is-active', i === 0));
+    document.querySelectorAll('.day-chip').forEach(c => setPressed(c, false));
+    document.querySelectorAll('#targetType .seg-btn').forEach((b, i) => setPressed(b, i === 0));
+    document.querySelectorAll('#scheduleType .seg-btn').forEach((b, i) => setPressed(b, i === 0));
     document.getElementById('repeatType').value = 'day';
     const monthDaySelectEl = document.getElementById('monthDaySelect');
     if (monthDaySelectEl) monthDaySelectEl.value = '1';
@@ -1190,12 +1220,21 @@
       DECOMPOSE_EXAMPLE.forEach(part => {
         const chip = el('button', {
           class: 'decompose-chip',
-          attrs: { type: 'button', 'data-token': part.type },
+          attrs: {
+            type: 'button',
+            'data-token': part.type,
+            'aria-pressed': 'false',
+            'aria-label': `${t(DECOMPOSE_LABEL[part.type])}: ${pick(part.text)}`
+          },
           text: pick(part.text)
         });
         chip.addEventListener('click', () => {
-          row.querySelectorAll('.decompose-chip').forEach(c => c.classList.remove('is-selected'));
+          row.querySelectorAll('.decompose-chip').forEach(c => {
+            c.classList.remove('is-selected');
+            c.setAttribute('aria-pressed', 'false');
+          });
           chip.classList.add('is-selected');
+          chip.setAttribute('aria-pressed', 'true');
           detail.innerHTML = '';
           detail.appendChild(el('strong', { text: `${pick(part.text)} → ${t(DECOMPOSE_LABEL[part.type])}` }));
           detail.appendChild(el('span', { text: pick(part.desc) }));
@@ -1221,12 +1260,18 @@
       dictTable.innerHTML = '';
       dictDetail.classList.remove('is-visible');
       dictDetail.textContent = '';
+      if (!dictDetail.id) dictDetail.id = 'dictDetail';
       GRAMMAR_DICT.forEach(entry => {
-        const rowBtn = el('button', { class: 'dict-row', attrs: { type: 'button' } }, [
+        const rowBtn = el('button', {
+          class: 'dict-row',
+          attrs: { type: 'button', 'aria-expanded': 'false', 'aria-controls': dictDetail.id }
+        }, [
           el('span', { class: 'dict-syntax', text: entry.syntax }),
           el('span', { class: 'dict-meaning', text: pick(entry.meaning) })
         ]);
         rowBtn.addEventListener('click', () => {
+          dictTable.querySelectorAll('.dict-row').forEach(r => r.setAttribute('aria-expanded', 'false'));
+          rowBtn.setAttribute('aria-expanded', 'true');
           dictDetail.textContent = pick(entry.detail);
           dictDetail.classList.add('is-visible');
         });
@@ -1816,9 +1861,11 @@
       return { type: 'me', value: 'me' };
     }
 
+    naturalTargetState.type = 'channel';
+    setPressedGroup(targetTypeBtns, b => b.classList.contains('is-active'));
+
     targetTypeBtns.forEach(btn => btn.addEventListener('click', () => {
-      targetTypeBtns.forEach(b => b.classList.remove('is-active'));
-      btn.classList.add('is-active');
+      setPressedGroup(targetTypeBtns, b => b === btn);
       naturalTargetState.type = btn.dataset.target;
       targetChannelInput.classList.toggle('is-hidden', naturalTargetState.type !== 'channel');
       targetUserInput.classList.toggle('is-hidden', naturalTargetState.type !== 'user');
@@ -1991,6 +2038,7 @@
 
     function updateToggleVisual() {
       options.forEach(o => o.classList.toggle('is-active', o.dataset.langOpt === currentLang));
+      toggle.setAttribute('aria-label', t('langToggleAriaLabelCurrent'));
     }
     updateToggleVisual();
 

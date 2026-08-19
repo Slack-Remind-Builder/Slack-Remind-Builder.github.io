@@ -328,7 +328,14 @@ button, input, select, textarea {
 .seg-btn.is-active {
   background: var(--surface);
   color: var(--accent);
-  box-shadow: var(--shadow-card);
+  font-weight: 800;
+  box-shadow: var(--shadow-card), inset 0 0 0 1.5px var(--accent);
+}
+.seg-btn.is-active::before {
+  content: '✓';
+  display: inline-block;
+  margin-right: 4px;
+  font-weight: 800;
 }
 
 .text-input, .text-area, .select-input {
@@ -458,6 +465,7 @@ button, input, select, textarea {
 .weekday-picker { margin: var(--space-4) 0; }
 .day-chips { display: flex; gap: 8px; flex-wrap: wrap; }
 .day-chip {
+  position: relative;
   width: 42px;
   height: 42px;
   border-radius: 50%;
@@ -474,6 +482,24 @@ button, input, select, textarea {
   background: var(--accent);
   border-color: var(--accent);
   color: var(--accent-contrast);
+}
+.day-chip.is-active::after {
+  content: '✓';
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: var(--success);
+  color: #fff;
+  border: 1.5px solid var(--surface);
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .form-actions { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
