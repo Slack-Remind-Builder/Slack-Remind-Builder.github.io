@@ -46,6 +46,7 @@
     mentionInsertLabel: { ja: '特殊通知をメッセージに挿入:', en: 'Insert a special mention:' },
     mentionInsertHint: { ja: '@here/@channelはチャンネルの全メンバーに通知します。@everyoneは #general チャンネルでのみ利用できます。', en: '@here/@channel notify everyone in the channel. @everyone only works in the #general channel.' },
     mentionEveryoneWarning: { ja: '⚠ @everyone は #general チャンネルでのみ通知されます。このチャンネルでは通知されない可能性があります。', en: '⚠ @everyone only notifies in the #general channel. It may not notify anyone in this channel.' },
+    toastMentionAlreadyPresent: { ja: '「{mention}」はすでに入っています', en: '"{mention}" is already in the message' },
     hintTargetUser: { ja: 'ユーザー名を「@」から入力してください。', en: 'Enter the username starting with "@".' },
     hintTargetMe: { ja: '自分自身だけに届くリマインドです。', en: 'A reminder only you will receive.' },
     labelMessage: { ja: 'メッセージ', en: 'Message' },
@@ -797,6 +798,11 @@
 
     mentionChips.forEach(chip => chip.addEventListener('click', () => {
       const mention = chip.dataset.mention;
+      const alreadyPresent = new RegExp(`(^|\\s)${mention}(\\s|$)`).test(messageInput.value);
+      if (alreadyPresent) {
+        showToast(t('toastMentionAlreadyPresent').replace('{mention}', mention));
+        return;
+      }
       const start = messageInput.selectionStart != null ? messageInput.selectionStart : messageInput.value.length;
       const end = messageInput.selectionEnd != null ? messageInput.selectionEnd : messageInput.value.length;
       const before = messageInput.value.slice(0, start);
