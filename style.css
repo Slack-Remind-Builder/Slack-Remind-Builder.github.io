@@ -296,6 +296,7 @@ button, input, select, textarea {
   margin-bottom: var(--space-2);
 }
 .field-hint { font-size: var(--text-2xs); color: var(--text-faint); margin: var(--space-2) 0 0; }
+.field-hint.is-warning { color: var(--tok-frequency); font-weight: 600; }
 .field-error {
   font-size: var(--text-2xs);
   color: var(--danger);

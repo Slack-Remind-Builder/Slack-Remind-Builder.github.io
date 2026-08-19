@@ -45,6 +45,7 @@
     hintTargetChannel: { ja: 'チャンネルの全員に向けてリマインドを送ります。「#」は自動的に付きます。', en: 'Sends the reminder to everyone in the channel. The "#" is added automatically.' },
     mentionInsertLabel: { ja: '特殊通知をメッセージに挿入:', en: 'Insert a special mention:' },
     mentionInsertHint: { ja: '@here/@channelはチャンネルの全メンバーに通知します。@everyoneは #general チャンネルでのみ利用できます。', en: '@here/@channel notify everyone in the channel. @everyone only works in the #general channel.' },
+    mentionEveryoneWarning: { ja: '⚠ @everyone は #general チャンネルでのみ通知されます。このチャンネルでは通知されない可能性があります。', en: '⚠ @everyone only notifies in the #general channel. It may not notify anyone in this channel.' },
     hintTargetUser: { ja: 'ユーザー名を「@」から入力してください。', en: 'Enter the username starting with "@".' },
     hintTargetMe: { ja: '自分自身だけに届くリマインドです。', en: 'A reminder only you will receive.' },
     labelMessage: { ja: 'メッセージ', en: 'Message' },
@@ -890,8 +891,22 @@
 
     const liveExplainBlock = document.getElementById('liveExplainBlock');
 
+    const mentionInsertHintEl = document.getElementById('mentionInsertHint');
+    function updateMentionHint() {
+      const channelName = (buildState.targetType === 'channel' ? buildState.targetChannel : '').replace(/^#+/, '').toLowerCase();
+      const hasEveryone = /@everyone\b/i.test(buildState.message || '');
+      if (hasEveryone && channelName !== 'general') {
+        mentionInsertHintEl.textContent = t('mentionEveryoneWarning');
+        mentionInsertHintEl.classList.add('is-warning');
+      } else {
+        mentionInsertHintEl.textContent = t('mentionInsertHint');
+        mentionInsertHintEl.classList.remove('is-warning');
+      }
+    }
+
     function renderBuild() {
       messageError.textContent = '';
+      updateMentionHint();
       const result = generateSlackCommand(buildState);
       const output = document.getElementById('buildOutput');
       if (!result.ok) {
@@ -902,7 +917,7 @@
           el('p', { class: 'field-error', text: firstError })
         ]));
         liveExplainBlock.innerHTML = '';
-        liveExplainBlock.appendChild(el('p', { class: 'empty-note', text: '宛先・メッセージ・時刻を入力すると、ここに解説が表示されます。' }));
+        liveExplainBlock.appendChild(el('p', { class: 'empty-note', text: t('explainPlaceholder') }));
         return;
       }
       renderCommandCard(output, result.parts, { hideExplainToggle: true });
