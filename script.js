@@ -46,6 +46,7 @@
     mentionInsertLabel: { ja: '特殊通知をメッセージに挿入:', en: 'Insert a special mention:' },
     mentionInsertHint: { ja: '@here/@channelはチャンネルの全メンバーに通知します。@everyoneは #general チャンネルでのみ利用できます。', en: '@here/@channel notify everyone in the channel. @everyone only works in the #general channel.' },
     mentionEveryoneWarning: { ja: '⚠ @everyone は #general チャンネルでのみ通知されます。このチャンネルでは通知されない可能性があります。', en: '⚠ @everyone only notifies in the #general channel. It may not notify anyone in this channel.' },
+    mentionDuplicateWarning: { ja: '⚠ 「{mention}」が2回以上使われています。意図した内容か確認してください。', en: '⚠ "{mention}" appears more than once. Make sure that\'s intentional.' },
     toastMentionAlreadyPresent: { ja: '「{mention}」はすでに入っています', en: '"{mention}" is already in the message' },
     hintTargetUser: { ja: 'ユーザー名を「@」から入力してください。', en: 'Enter the username starting with "@".' },
     hintTargetMe: { ja: '自分自身だけに届くリマインドです。', en: 'A reminder only you will receive.' },
@@ -898,10 +899,26 @@
     const liveExplainBlock = document.getElementById('liveExplainBlock');
 
     const mentionInsertHintEl = document.getElementById('mentionInsertHint');
+    // メッセージ内に同じ特殊メンションが2回以上「単語として」出現していないか調べる。
+    // トークン単位の完全一致で判定するため、「@hereford」のような文字列の一部を誤検知しない。
+    function findDuplicateMention(message) {
+      const tokens = (message || '').split(/\s+/);
+      const mentions = ['@here', '@channel', '@everyone'];
+      for (const m of mentions) {
+        const count = tokens.filter(tok => tok === m).length;
+        if (count >= 2) return m;
+      }
+      return null;
+    }
+
     function updateMentionHint() {
       const channelName = (buildState.targetType === 'channel' ? buildState.targetChannel : '').replace(/^#+/, '').toLowerCase();
+      const dupMention = findDuplicateMention(buildState.message);
       const hasEveryone = /@everyone\b/i.test(buildState.message || '');
-      if (hasEveryone && channelName !== 'general') {
+      if (dupMention) {
+        mentionInsertHintEl.textContent = t('mentionDuplicateWarning').replace('{mention}', dupMention);
+        mentionInsertHintEl.classList.add('is-warning');
+      } else if (hasEveryone && channelName !== 'general') {
         mentionInsertHintEl.textContent = t('mentionEveryoneWarning');
         mentionInsertHintEl.classList.add('is-warning');
       } else {
