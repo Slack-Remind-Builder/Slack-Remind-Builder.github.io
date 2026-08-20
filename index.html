@@ -168,6 +168,13 @@
       <div class="preview-col">
         <div id="buildOutput"></div>
 
+        <div class="card next-run-card">
+          <h3 class="card-subtitle" data-i18n="nextRunTitle">次回実行プレビュー</h3>
+          <p class="card-desc" data-i18n="nextRunDesc">この設定で、実際にいつ実行されるかを確認できます(概算です)。</p>
+          <div class="next-run-list" id="nextRunList"></div>
+          <p class="field-hint" id="nextRunNote"></p>
+        </div>
+
         <div class="card live-explain-card">
           <h3 class="card-subtitle" data-i18n="labelExplainTitle">このコマンドの意味</h3>
           <p class="card-desc" data-i18n="explainDesc">色ごとに「コマンド/宛先/メッセージ/繰り返し/時刻」を表しています。</p>
@@ -306,11 +313,15 @@
   <div class="command-card">
     <div class="command-card-head">
       <span class="command-card-label" data-i18n="generatedCommandLabel">生成されたコマンド</span>
-      <button type="button" class="btn btn-copy" data-i18n="btnCopy">コピー</button>
+      <div class="command-card-head-actions">
+        <button type="button" class="btn btn-copy" data-i18n="btnCopy">コピー</button>
+        <button type="button" class="btn btn-ghost btn-open-slack" data-i18n="btnOpenSlack">Slackを開く</button>
+      </div>
     </div>
     <div class="command-card-body">
       <code class="command-text"></code>
     </div>
+    <p class="paste-hint"></p>
     <button type="button" class="btn btn-link btn-explain" data-i18n="btnExplain">コマンドを分解して見る</button>
     <div class="explain-block is-hidden"></div>
   </div>

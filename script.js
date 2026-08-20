@@ -49,7 +49,7 @@
     mentionEveryoneWarning: { ja: '⚠ @everyone は #general チャンネルでのみ通知されます。このチャンネルでは通知されない可能性があります。', en: '⚠ @everyone only notifies in the #general channel. It may not notify anyone in this channel.' },
     mentionDuplicateWarning: { ja: '⚠ 「{mention}」が2回以上使われています。意図した内容か確認してください。', en: '⚠ "{mention}" appears more than once. Make sure that\'s intentional.' },
     toastMentionAlreadyPresent: { ja: '「{mention}」はすでに入っています', en: '"{mention}" is already in the message' },
-    hintTargetUser: { ja: 'ユーザー名を「@」から入力してください。', en: 'Enter the username starting with "@".' },
+    hintTargetUser: { ja: 'ユーザー名を「@」から入力してください。※ワークスペースの設定によっては、個人宛リマインドが利用できない場合があります。', en: 'Enter the username starting with "@". Note: depending on workspace settings, reminders to individual users may not be supported.' },
     hintTargetMe: { ja: '自分自身だけに届くリマインドです。', en: 'A reminder only you will receive.' },
     labelMessage: { ja: 'メッセージ', en: 'Message' },
     messagePlaceholder: { ja: '会議資料を確認してください', en: 'Please review the meeting materials' },
@@ -75,6 +75,20 @@
     labelExplainTitle: { ja: 'このコマンドの意味', en: 'What this command means' },
     explainDesc: { ja: '色ごとに「コマンド/宛先/メッセージ/繰り返し/時刻」を表しています。', en: 'Each color represents a part: command / target / message / frequency / time.' },
     explainPlaceholder: { ja: '宛先・メッセージ・時刻を入力すると、ここに解説が表示されます。', en: 'Fill in the target, message, and time to see the explanation here.' },
+    nextRunTitle: { ja: '次回実行プレビュー', en: 'Upcoming Occurrences' },
+    nextRunDesc: { ja: 'この設定で、実際にいつ実行されるかを確認できます(概算です)。', en: 'See when this reminder will actually fire (an estimate).' },
+    nextRunEmptyNote: { ja: '宛先・メッセージ・日時を入力すると、ここに次回実行の予定が表示されます。', en: 'Fill in the target, message, and time to preview upcoming occurrences here.' },
+    nextRunOnceLabel: { ja: '実行日時', en: 'Scheduled for' },
+    nextRunFirstLabel: { ja: '次回実行', en: 'Next' },
+    nextRunThenLabel: { ja: 'その次', en: 'Then' },
+    nextRunTzLabel: { ja: 'タイムゾーン: {tz}(このブラウザの設定)。', en: 'Timezone: {tz} (this browser\'s setting).' },
+    nextRunTzCaution: { ja: 'Slackは実際には各ユーザーのSlackアカウント設定のタイムゾーンで実行されるため、実際の時刻とズレる場合があります。', en: 'Slack reminders actually run in each user\'s own Slack account timezone, which may differ from this.' },
+    nextRunBiweeklyNote: { ja: '⚠「隔週」の起点はSlack側が決めるため、この日程は今日を起点とした概算です。', en: '⚠ Slack determines the actual start point for "every 2 weeks", so these dates are only an estimate based on today.' },
+    nextRunMonthSkipNote: { ja: '⚠ その日付が存在しない月はスキップされます(例: 31日は2月・4月・6月・9月・11月に存在しません)。', en: '⚠ Months without that date are skipped (e.g. the 31st doesn\'t exist in Feb, Apr, Jun, Sep, or Nov).' },
+    nextRunYearSkipNote: { ja: '⚠ 2月29日は、うるう年以外はスキップされます。', en: '⚠ Feb 29 is skipped in years that aren\'t leap years.' },
+    btnOpenSlack: { ja: 'Slackを開く', en: 'Open Slack' },
+    pasteHintMac: { ja: 'コピーしたら、開いたSlackに ⌘V で貼り付けてください。', en: 'After copying, paste it into Slack with ⌘V.' },
+    pasteHintWin: { ja: 'コピーしたら、開いたSlackに Ctrl+V で貼り付けてください。', en: 'After copying, paste it into Slack with Ctrl+V.' },
     labelTemplates: { ja: 'よく使うテンプレート', en: 'Quick templates' },
     templatesDesc: { ja: 'クリックすると左のフォームに反映されます。', en: 'Click one to fill in the form on the left.' },
     errNoMessage: { ja: '⚠ メッセージを入力してください', en: '⚠ Please enter a message' },
@@ -189,6 +203,8 @@
     return currentLang === 'en' ? WEEKDAY_EN_SHORT_LABEL[key] : WEEKDAY_JA_LABEL[key];
   }
   const WEEKDAY_ORDER = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+  // JS の Date.getDay() (0=日曜〜6=土曜) から weekday キーを引くための対応表
+  const WEEKDAY_KEY_BY_JS_INDEX = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 
   const MONTH_EN = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
   const MONTH_JA = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
@@ -465,8 +481,143 @@
   }
 
   /* ------------------------------------------------------------------ *
-   * 3. コマンドカードの描画 (3モード共通 / #19, #20, #28)
+   * 2.5 次回実行プレビュー
+   * このアプリだけで完結する概算計算です(サーバー側の起点を知らないため、
+   * 「隔週」は今日を起点とした概算、日付はブラウザのタイムゾーンで計算しています)。
    * ------------------------------------------------------------------ */
+
+  function computeNextOccurrences(state, count) {
+    const now = new Date();
+    const notes = new Set();
+    const results = [];
+
+    function timeParts(t) {
+      const [h, m] = (t || '09:00').split(':').map(Number);
+      return { h: h || 0, m: m || 0 };
+    }
+
+    if (state.scheduleType === 'once') {
+      if (!state.onceDate) return { results, notes };
+      const [y, mo, d] = state.onceDate.split('-').map(Number);
+      const { h, m } = timeParts(state.onceTime);
+      if (!y || !mo || !d) return { results, notes };
+      results.push(new Date(y, mo - 1, d, h, m));
+      return { results, notes };
+    }
+
+    const { h, m } = timeParts(state.repeatTime);
+    const type = state.repeatType;
+
+    if (type === 'month') {
+      const day = state.monthDay || 1;
+      let y = now.getFullYear();
+      let mo = now.getMonth(); // 0-11
+      let guard = 0;
+      while (results.length < count && guard < 60) {
+        const daysInThisMonth = new Date(y, mo + 1, 0).getDate();
+        if (day <= daysInThisMonth) {
+          const candidate = new Date(y, mo, day, h, m);
+          if (candidate > now) results.push(candidate);
+        } else {
+          notes.add('monthSkip');
+        }
+        mo += 1;
+        if (mo > 11) { mo = 0; y += 1; }
+        guard += 1;
+      }
+      return { results, notes };
+    }
+
+    if (type === 'year') {
+      const day = state.yearDay || 1;
+      const month = (state.yearMonth || 1) - 1; // 0-11
+      let y = now.getFullYear();
+      let guard = 0;
+      while (results.length < count && guard < 30) {
+        const daysInThisMonth = new Date(y, month + 1, 0).getDate();
+        if (day <= daysInThisMonth) {
+          const candidate = new Date(y, month, day, h, m);
+          if (candidate > now) results.push(candidate);
+        } else {
+          notes.add('yearSkip'); // 例: うるう年以外の2月29日
+        }
+        y += 1;
+        guard += 1;
+      }
+      return { results, notes };
+    }
+
+    // day / weekday / weekend / week / biweekly は1日ずつ進めながら条件に合う日を探す
+    let cursor = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m);
+    if (cursor <= now) cursor.setDate(cursor.getDate() + 1);
+    const anchor = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    let targetDayIndices = null;
+    if (type === 'week' || type === 'biweekly') {
+      const days = (state.weekdays && state.weekdays.length) ? state.weekdays : ['mon'];
+      targetDayIndices = days.map(d => WEEKDAY_KEY_BY_JS_INDEX.indexOf(d));
+    }
+    if (type === 'biweekly') notes.add('biweeklyApprox');
+
+    let guard = 0;
+    while (results.length < count && guard < 400) {
+      const dow = cursor.getDay();
+      let matches = false;
+      if (type === 'day') matches = true;
+      else if (type === 'weekday') matches = dow !== 0 && dow !== 6;
+      else if (type === 'weekend') matches = dow === 0 || dow === 6;
+      else if (type === 'week') matches = targetDayIndices.includes(dow);
+      else if (type === 'biweekly') {
+        if (targetDayIndices.includes(dow)) {
+          const daysSinceAnchor = Math.round((new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate()) - anchor) / 86400000);
+          matches = Math.floor(daysSinceAnchor / 7) % 2 === 0;
+        }
+      }
+      if (matches) results.push(new Date(cursor));
+      cursor.setDate(cursor.getDate() + 1);
+      guard += 1;
+    }
+    return { results, notes };
+  }
+
+  function formatOccurrenceDate(date) {
+    const y = date.getFullYear(), mo = pad2(date.getMonth() + 1), d = pad2(date.getDate());
+    const hh = pad2(date.getHours()), mm = pad2(date.getMinutes());
+    const wd = currentLang === 'en' ? EN_WEEKDAY_SHORT_BY_INDEX[date.getDay()] : JP_WEEKDAY_BY_INDEX[date.getDay()];
+    return `${y}-${mo}-${d} ${hh}:${mm} (${wd})`;
+  }
+
+  function renderNextRunPreview(state) {
+    const listEl = document.getElementById('nextRunList');
+    const noteEl = document.getElementById('nextRunNote');
+    if (!listEl || !noteEl) return;
+    listEl.innerHTML = '';
+
+    const isOnce = state.scheduleType === 'once';
+    const { results, notes } = computeNextOccurrences(state, isOnce ? 1 : 5);
+
+    if (results.length === 0) {
+      listEl.appendChild(el('p', { class: 'empty-note', text: t('nextRunEmptyNote') }));
+      noteEl.textContent = '';
+      return;
+    }
+
+    results.forEach((date, i) => {
+      const label = isOnce ? t('nextRunOnceLabel') : (i === 0 ? t('nextRunFirstLabel') : t('nextRunThenLabel'));
+      listEl.appendChild(el('div', { class: 'next-run-row' }, [
+        el('span', { class: 'next-run-row-label', text: label }),
+        el('span', { class: 'next-run-row-date', text: formatOccurrenceDate(date) })
+      ]));
+    });
+
+    let tz = 'UTC';
+    try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'; } catch (e) { /* noop */ }
+    const noteParts = [t('nextRunTzLabel').replace('{tz}', tz), t('nextRunTzCaution')];
+    if (notes.has('biweeklyApprox')) noteParts.push(t('nextRunBiweeklyNote'));
+    if (notes.has('monthSkip')) noteParts.push(t('nextRunMonthSkipNote'));
+    if (notes.has('yearSkip')) noteParts.push(t('nextRunYearSkipNote'));
+    noteEl.textContent = noteParts.join(' ');
+  }
 
   function renderCommandCard(container, parts, options = {}) {
     container.innerHTML = '';
@@ -475,8 +626,25 @@
     const commandText = node.querySelector('.command-text');
     commandText.textContent = partsToString(parts); // textContent のみ使用(XSS対策)
 
+    // テンプレートの静的文言は言語切替のたびに再クローンされるため、
+    // ここで明示的に翻訳し直す(以前は初期HTMLの日本語のまま固定されていたバグを修正)
+    node.querySelector('.command-card-label').textContent = t('generatedCommandLabel');
+
     const copyBtn = node.querySelector('.btn-copy');
+    copyBtn.textContent = t('btnCopy');
     copyBtn.addEventListener('click', () => copyCommand(partsToString(parts), copyBtn));
+
+    const openSlackBtn = node.querySelector('.btn-open-slack');
+    openSlackBtn.textContent = t('btnOpenSlack');
+    openSlackBtn.addEventListener('click', () => {
+      window.open('https://app.slack.com/client', '_blank', 'noopener');
+    });
+
+    // Slackには「コマンドを貼り付け済みの状態で開く」ような公開のディープリンクが無いため、
+    // 「開く→自分で貼り付ける」ことを前提に、OSに応じた貼り付けショートカットだけ案内する
+    const pasteHintEl = node.querySelector('.paste-hint');
+    const isMac = /Mac|iPhone|iPad|iPod/i.test(navigator.platform || navigator.userAgent || '');
+    pasteHintEl.textContent = isMac ? t('pasteHintMac') : t('pasteHintWin');
 
     const explainBtn = node.querySelector('.btn-explain');
     const explainBlock = node.querySelector('.explain-block');
@@ -484,6 +652,7 @@
       explainBtn.remove();
       explainBlock.remove();
     } else {
+      explainBtn.textContent = t('btnExplain');
       explainBtn.setAttribute('aria-expanded', 'false');
       explainBtn.addEventListener('click', () => {
         const isHidden = explainBlock.classList.contains('is-hidden');
@@ -967,10 +1136,14 @@
         ]));
         liveExplainBlock.innerHTML = '';
         liveExplainBlock.appendChild(el('p', { class: 'empty-note', text: t('explainPlaceholder') }));
+        document.getElementById('nextRunList').innerHTML = '';
+        document.getElementById('nextRunList').appendChild(el('p', { class: 'empty-note', text: t('nextRunEmptyNote') }));
+        document.getElementById('nextRunNote').textContent = '';
         return;
       }
       renderCommandCard(output, result.parts, { hideExplainToggle: true });
       explainCommand(result.parts, liveExplainBlock);
+      renderNextRunPreview(buildState);
       persistFormState();
     }
 
