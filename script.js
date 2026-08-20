@@ -380,7 +380,7 @@
       const diffDays = Math.round((target - new Date(today.getFullYear(), today.getMonth(), today.getDate())) / 86400000);
       if (diffDays === 0) dateFragment = 'today';
       else if (diffDays === 1) dateFragment = 'tomorrow';
-      else dateFragment = `on ${target.getMonth() + 1}/${target.getDate()}`;
+      else dateFragment = `on ${target.getMonth() + 1}/${target.getDate()}/${target.getFullYear()}`;
     } else {
       dateFragment = 'today';
     }
