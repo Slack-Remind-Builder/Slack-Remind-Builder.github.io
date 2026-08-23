@@ -4,6 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Slack Remind Builder — Slackの /remind を簡単に作って、楽しく学ぶ。</title>
+<meta name="description" content="Slackの/remindコマンドを日本語フォームや自然文から作成できる無料ツール。コマンドの文法学習、繰り返し設定、実行日時のプレビューに対応。">
+<meta property="og:title" content="Slack Remind Builder — Slackの /remind を簡単に作って、楽しく学ぶ。">
+<meta property="og:description" content="Slackの/remindコマンドを日本語フォームや自然文から作成できる無料ツール。コマンドの文法学習、繰り返し設定、実行日時のプレビューに対応。">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Slack Remind Builder">
+<meta name="twitter:description" content="Slackの/remindコマンドを日本語フォームや自然文から作成できる無料ツール。">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%8F%B0%3C/text%3E%3C/svg%3E">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -35,13 +43,13 @@
 
 <!-- ============ MODE TABS ============ -->
 <nav class="mode-tabs" role="tablist" data-i18n-aria-label="modeTabsAriaLabel" aria-label="モード選択">
-  <button class="tab-btn is-active" data-mode="build" role="tab" aria-selected="true" type="button">
+  <button class="tab-btn is-active" id="tab-build" data-mode="build" role="tab" aria-selected="true" aria-controls="panel-build" type="button">
     <span class="tab-icon">⚡</span><span class="tab-label" data-i18n="tabBuild">簡単作成</span>
   </button>
-  <button class="tab-btn" data-mode="learn" role="tab" aria-selected="false" type="button">
+  <button class="tab-btn" id="tab-learn" data-mode="learn" role="tab" aria-selected="false" aria-controls="panel-learn" type="button">
     <span class="tab-icon">📖</span><span class="tab-label" data-i18n="tabLearn">コマンドを学ぶ</span>
   </button>
-  <button class="tab-btn" data-mode="natural" role="tab" aria-selected="false" type="button">
+  <button class="tab-btn" id="tab-natural" data-mode="natural" role="tab" aria-selected="false" aria-controls="panel-natural" type="button">
     <span class="tab-icon">✨</span><span class="tab-label" data-i18n="tabNatural">自然文から作成</span>
   </button>
 </nav>
@@ -51,7 +59,7 @@
   <!-- ================================================================ -->
   <!-- MODE 1: 簡単作成 -->
   <!-- ================================================================ -->
-  <section class="mode-panel is-active" id="panel-build" role="tabpanel">
+  <section class="mode-panel is-active" id="panel-build" role="tabpanel" aria-labelledby="tab-build" tabindex="0">
 
     <div class="panel-grid">
       <!-- FORM -->
@@ -75,9 +83,9 @@
           <textarea id="messageInput" class="text-area" rows="3" data-i18n-placeholder="messagePlaceholder" placeholder="会議資料を確認してください"></textarea>
           <div class="mention-insert-row" id="mentionInsertRow">
             <span class="mention-insert-label" data-i18n="mentionInsertLabel">特殊通知をメッセージに挿入:</span>
-            <button type="button" class="mention-chip" data-mention="@here">@here</button>
-            <button type="button" class="mention-chip" data-mention="@channel">@channel</button>
-            <button type="button" class="mention-chip" data-mention="@everyone">@everyone</button>
+            <button type="button" class="mention-chip" data-mention="@here" data-i18n-title="mentionHereTitle" title="アクティブ(オンライン)なメンバーのみに通知">@here</button>
+            <button type="button" class="mention-chip" data-mention="@channel" data-i18n-title="mentionChannelTitle" title="オンライン/離席問わずチャンネルの全メンバーに通知">@channel</button>
+            <button type="button" class="mention-chip" data-mention="@everyone" data-i18n-title="mentionEveryoneTitle" title="#generalチャンネルの全メンバーに通知(#general限定)">@everyone</button>
           </div>
           <p class="field-hint" id="mentionInsertHint" data-i18n="mentionInsertHint">@here/@channelはチャンネルの全メンバーに通知します。@everyoneは #general チャンネルでのみ利用できます。</p>
           <p class="field-error" id="messageError"></p>
@@ -106,6 +114,7 @@
           <div class="field-group">
             <label class="field-label" for="onceTime" data-i18n="labelTime">時刻</label>
             <input type="time" id="onceTime" class="text-input" value="09:00">
+            <p class="field-hint" id="onceTimePastWarning"></p>
           </div>
         </div>
 
@@ -193,7 +202,7 @@
   <!-- ================================================================ -->
   <!-- MODE 2: コマンドを学ぶ -->
   <!-- ================================================================ -->
-  <section class="mode-panel" id="panel-learn" role="tabpanel">
+  <section class="mode-panel" id="panel-learn" role="tabpanel" aria-labelledby="tab-learn" tabindex="0">
 
     <div class="card">
       <h2 class="card-title" data-i18n="learnDecomposeTitle">コマンドを分解してみよう</h2>
@@ -260,7 +269,7 @@
   <!-- ================================================================ -->
   <!-- MODE 3: 自然文から作成 -->
   <!-- ================================================================ -->
-  <section class="mode-panel" id="panel-natural" role="tabpanel">
+  <section class="mode-panel" id="panel-natural" role="tabpanel" aria-labelledby="tab-natural" tabindex="0">
 
     <div class="card">
       <h2 class="card-title" id="naturalInputTitle" data-i18n="naturalInputTitle">日本語で入力してください</h2>

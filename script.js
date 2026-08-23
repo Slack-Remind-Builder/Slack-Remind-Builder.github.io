@@ -45,7 +45,10 @@
     userPlaceholder: { ja: '@tanaka', en: '@username' },
     hintTargetChannel: { ja: 'チャンネルの全員に向けてリマインドを送ります。「#」は自動的に付きます。', en: 'Sends the reminder to everyone in the channel. The "#" is added automatically.' },
     mentionInsertLabel: { ja: '特殊通知をメッセージに挿入:', en: 'Insert a special mention:' },
-    mentionInsertHint: { ja: '@here/@channelはチャンネルの全メンバーに通知します。@everyoneは #general チャンネルでのみ利用できます。', en: '@here/@channel notify everyone in the channel. @everyone only works in the #general channel.' },
+    mentionHereTitle: { ja: 'アクティブ(オンライン)なメンバーのみに通知', en: 'Notifies only active (online) members' },
+    mentionChannelTitle: { ja: 'オンライン/離席問わずチャンネルの全メンバーに通知', en: 'Notifies all channel members, online or away' },
+    mentionEveryoneTitle: { ja: '#generalチャンネルの全メンバーに通知(#general限定)', en: 'Notifies everyone in the #general channel (only works there)' },
+    mentionInsertHint: { ja: '@hereはアクティブ(オンライン)なメンバーのみ、@channelはオンライン/離席問わずチャンネルの全メンバーに通知します。@everyoneは #general チャンネルでのみ利用できます。', en: '@here notifies only active (online) members, while @channel notifies everyone in the channel whether online or away. @everyone only works in the #general channel.' },
     mentionEveryoneWarning: { ja: '⚠ @everyone は #general チャンネルでのみ通知されます。このチャンネルでは通知されない可能性があります。', en: '⚠ @everyone only notifies in the #general channel. It may not notify anyone in this channel.' },
     mentionDuplicateWarning: { ja: '⚠ 「{mention}」が2回以上使われています。意図した内容か確認してください。', en: '⚠ "{mention}" appears more than once. Make sure that\'s intentional.' },
     toastMentionAlreadyPresent: { ja: '「{mention}」はすでに入っています', en: '"{mention}" is already in the message' },
@@ -86,6 +89,7 @@
     nextRunBiweeklyNote: { ja: '⚠「隔週」の起点はSlack側が決めるため、この日程は今日を起点とした概算です。', en: '⚠ Slack determines the actual start point for "every 2 weeks", so these dates are only an estimate based on today.' },
     nextRunMonthSkipNote: { ja: '⚠ その日付が存在しない月はスキップされます(例: 31日は2月・4月・6月・9月・11月に存在しません)。', en: '⚠ Months without that date are skipped (e.g. the 31st doesn\'t exist in Feb, Apr, Jun, Sep, or Nov).' },
     nextRunYearSkipNote: { ja: '⚠ 2月29日は、うるう年以外はスキップされます。', en: '⚠ Feb 29 is skipped in years that aren\'t leap years.' },
+    onceTimePastWarning: { ja: '⚠ 今日の日付でこの時刻はすでに過ぎています。翌日以降として解釈される可能性があります。', en: '⚠ This time has already passed today. Slack may interpret it as tomorrow instead.' },
     btnOpenSlack: { ja: 'Slackを開く', en: 'Open Slack' },
     pasteHintMac: { ja: 'コピーしたら、開いたSlackに ⌘V で貼り付けてください。', en: 'After copying, paste it into Slack with ⌘V.' },
     pasteHintWin: { ja: 'コピーしたら、開いたSlackに Ctrl+V で貼り付けてください。', en: 'After copying, paste it into Slack with Ctrl+V.' },
@@ -96,6 +100,7 @@
     errNoChannel: { ja: '⚠ チャンネル名を入力してください(例: #general)', en: '⚠ Please enter a channel name (e.g. #general)' },
     errNoTime: { ja: '⚠ リマインドする時刻を指定してください', en: '⚠ Please specify a time for the reminder' },
     errNoWeekday: { ja: '⚠ 曜日を1つ以上選択してください', en: '⚠ Please select at least one day of the week' },
+    errPastDate: { ja: '⚠ 過去の日付は選択できません。日付を選び直してください。', en: '⚠ You can\'t select a date in the past. Please choose a different date.' },
     toastCopied: { ja: '✓ コピーしました', en: '✓ Copied to clipboard' },
     toastCopiedShort: { ja: '✓ コピー済み', en: '✓ Copied' },
     toastCopyFailed: { ja: 'コピーに失敗しました', en: 'Copy failed' },
@@ -127,6 +132,7 @@
     parseCellTime: { ja: '🕐 時刻', en: '🕐 Time' },
     parseCellMessage: { ja: '📝 内容', en: '📝 Message' },
     naturalCouldNotParse: { ja: '内容を読み取れませんでした。もう少し具体的に入力してください。', en: "Couldn't quite parse that — try being a bit more specific." },
+    naturalInvalidTime: { ja: '⚠「{text}」は正しい時刻ではありません。時刻を確認して入力し直してください。', en: '⚠ "{text}" isn\'t a valid time. Please check it and try again.' },
     naturalAmbiguousPrefix: { ja: '「', en: '"' },
     naturalAmbiguousSuffix: { ja: '」だけでは、いつリマインドすればよいか分かりませんでした。タイミングを選んでください。', en: '" alone doesn\'t tell us when to remind you. Please choose a timing.' },
     clarifyDaily: { ja: '毎日', en: 'Daily' },
@@ -179,6 +185,9 @@
     });
     document.querySelectorAll('[data-i18n-aria-label]').forEach(elNode => {
       elNode.setAttribute('aria-label', t(elNode.getAttribute('data-i18n-aria-label')));
+    });
+    document.querySelectorAll('[data-i18n-title]').forEach(elNode => {
+      elNode.setAttribute('title', t(elNode.getAttribute('data-i18n-title')));
     });
     document.querySelectorAll('.day-chip').forEach(chip => {
       chip.textContent = weekdayChipLabel(chip.dataset.day);
@@ -257,7 +266,10 @@
     { syntax: 'in 2 hours', meaning: { ja: '2時間後', en: 'In 2 hours' }, detail: { ja: '相対時間の指定。分・時間の単位で「〇〇後」を表現できます。', en: 'A relative time offset — express "in X" using minutes or hours.' } },
     { syntax: 'tomorrow', meaning: { ja: '明日', en: 'Tomorrow' }, detail: { ja: '翌日の同じ時刻、または指定した時刻にリマインドします。1回だけ実行されます。', en: 'Reminds you tomorrow, at the same time or a time you specify. Runs only once.' } },
     { syntax: 'next Monday', meaning: { ja: '次の月曜日', en: 'Next Monday' }, detail: { ja: '直近の月曜日に1回だけリマインドします。毎週繰り返したい場合は every Monday を使います。', en: 'Reminds you once, on the nearest Monday. Use "every Monday" if you want it weekly.' } },
-    { syntax: 'next week', meaning: { ja: '来週', en: 'Next week' }, detail: { ja: '来週の同じ曜日にリマインドします。1回だけ実行されます。', en: 'Reminds you next week on the same day. Runs only once.' } }
+    { syntax: 'next week', meaning: { ja: '来週', en: 'Next week' }, detail: { ja: '来週の同じ曜日にリマインドします。1回だけ実行されます。', en: 'Reminds you next week on the same day. Runs only once.' } },
+    { syntax: '@here', meaning: { ja: 'アクティブなメンバーのみに通知', en: 'Notifies only active members' }, detail: { ja: 'メッセージ本文に含めると、そのチャンネルで現在アクティブ(オンライン)なメンバーだけに通知します。離席中/オフラインのメンバーには届きません。', en: 'When included in the message text, this notifies only members who are currently active (online) in that channel. Members who are away or offline won\'t be notified.' } },
+    { syntax: '@channel', meaning: { ja: '全メンバーに通知(オンライン/離席問わず)', en: 'Notifies everyone (online or away)' }, detail: { ja: 'メッセージ本文に含めると、オンラインか離席中かを問わず、そのチャンネルに参加しているメンバー全員に通知します。@hereより広い範囲に届きます。', en: 'When included in the message text, this notifies everyone in the channel regardless of whether they\'re online or away — a wider reach than @here.' } },
+    { syntax: '@everyone', meaning: { ja: '#generalの全メンバーに通知', en: 'Notifies everyone in #general' }, detail: { ja: '#general チャンネルでのみ使える特殊メンションです。ワークスペースの全メンバーに通知が届きます。他のチャンネルでは通常のテキストとして扱われ、通知されません。', en: 'A special mention that only works in the #general channel. It notifies every member of the workspace. In other channels it\'s treated as plain text and notifies no one.' } }
   ];
 
   // サンプル(#21) — 自然文入力の例。JAとENでは解析エンジンが異なるため、
@@ -466,6 +478,15 @@
     if (state.scheduleType === 'once' && !state.onceDate) {
       // 日付未指定は「today」として扱うため必須ではないが、時刻は必須
       if (!state.onceTime) errors.schedule = t('errNoTime');
+    }
+    if (state.scheduleType === 'once' && state.onceDate) {
+      const [y, mo, d] = state.onceDate.split('-').map(Number);
+      const targetDateOnly = new Date(y, (mo || 1) - 1, d || 1);
+      const todayOnly = new Date();
+      todayOnly.setHours(0, 0, 0, 0);
+      if (targetDateOnly < todayOnly) {
+        errors.schedule = t('errPastDate');
+      }
     }
     if (state.scheduleType === 'repeat' && (state.repeatType === 'week' || state.repeatType === 'biweekly') && state.weekdays.length === 0) {
       errors.schedule = t('errNoWeekday');
@@ -813,7 +834,9 @@
       weekdayRow.forEach(w => grid.appendChild(el('div', { class: 'cal-weekday', text: w })));
 
       const firstWeekday = new Date(viewYear, viewMonth - 1, 1).getDay(); // 0=日
-      const total = daysInMonth(viewYear, viewMonth);
+      // 「毎年の月日」モードでは年は無視されるため、2月は常に29日まで選べるようにする
+      // (表示中の年がたまたま平年だと29日が選択肢から消えてしまうバグを防ぐ)
+      const total = (mode === 'monthday' && viewMonth === 2) ? 29 : daysInMonth(viewYear, viewMonth);
 
       for (let i = 0; i < firstWeekday; i++) {
         grid.appendChild(el('span', { class: 'cal-day is-empty', text: '' }));
@@ -823,20 +846,27 @@
         const isSelected = mode === 'full'
           ? (selected && selected.year === viewYear && selected.month === viewMonth && selected.day === d)
           : (selected && selected.month === viewMonth && selected.day === d);
+        // 「1回のみ」の日付は過去日を選べないようにする(過去日を選ぶと矛盾したコマンドになるため)
+        const isPast = mode === 'full' && new Date(viewYear, viewMonth - 1, d) < new Date(today.getFullYear(), today.getMonth(), today.getDate());
         const classes = ['cal-day'];
         if (isToday) classes.push('is-today');
         if (isSelected) classes.push('is-selected');
+        if (isPast) classes.push('is-past');
         const dayBtn = el('button', {
           class: classes.join(' '),
-          attrs: isSelected ? { type: 'button', 'aria-current': 'date' } : { type: 'button' },
+          attrs: isPast
+            ? { type: 'button', disabled: 'disabled', 'aria-disabled': 'true' }
+            : (isSelected ? { type: 'button', 'aria-current': 'date' } : { type: 'button' }),
           text: String(d)
         });
-        dayBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          selected = mode === 'full' ? { year: viewYear, month: viewMonth, day: d } : { month: viewMonth, day: d };
-          onSelect(selected);
-          closePopover();
-        });
+        if (!isPast) {
+          dayBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            selected = mode === 'full' ? { year: viewYear, month: viewMonth, day: d } : { month: viewMonth, day: d };
+            onSelect(selected);
+            closePopover();
+          });
+        }
         grid.appendChild(dayBtn);
       }
       popoverEl.appendChild(grid);
@@ -1122,9 +1152,25 @@
       }
     }
 
+    const onceTimePastWarningEl = document.getElementById('onceTimePastWarning');
+    function updateOnceTimePastWarning() {
+      if (!onceTimePastWarningEl) return;
+      if (buildState.scheduleType !== 'once' || !buildState.onceDate) {
+        onceTimePastWarningEl.textContent = '';
+        return;
+      }
+      const [y, mo, d] = buildState.onceDate.split('-').map(Number);
+      const [h, m] = (buildState.onceTime || '09:00').split(':').map(Number);
+      const target = new Date(y, (mo || 1) - 1, d || 1, h || 0, m || 0);
+      const now = new Date();
+      const isToday = target.getFullYear() === now.getFullYear() && target.getMonth() === now.getMonth() && target.getDate() === now.getDate();
+      onceTimePastWarningEl.textContent = (isToday && target <= now) ? t('onceTimePastWarning') : '';
+    }
+
     function renderBuild() {
       messageError.textContent = '';
       updateMentionHint();
+      updateOnceTimePastWarning();
       const result = generateSlackCommand(buildState);
       const output = document.getElementById('buildOutput');
       if (!result.ok) {
@@ -1591,21 +1637,32 @@
   }
 
   // 時刻表現を抽出する。見つかった場合 {hour, minute, matchText} を返す
+  // 時刻の妥当性を検証する。範囲外(25時、9時75分など)は自動補正せず、
+  // 呼び出し側が明確なエラーとして扱えるよう { invalid: true } を返す。
   function extractTime(text) {
     let m;
     if ((m = text.match(/午前\s*(\d{1,2})時(?:\s*(\d{1,2})分)?/))) {
-      let h = parseInt(m[1], 10) % 12;
-      return { hour: h, minute: m[2] ? parseInt(m[2], 10) : 0, matchText: m[0] };
+      const rawH = parseInt(m[1], 10);
+      const rawM = m[2] ? parseInt(m[2], 10) : 0;
+      if (rawH < 0 || rawH > 12 || rawM > 59) return { invalid: true, matchText: m[0] };
+      return { hour: rawH % 12, minute: rawM, matchText: m[0] };
     }
     if ((m = text.match(/午後\s*(\d{1,2})時(?:\s*(\d{1,2})分)?/))) {
-      let h = parseInt(m[1], 10) % 12 + 12;
-      return { hour: h, minute: m[2] ? parseInt(m[2], 10) : 0, matchText: m[0] };
+      const rawH = parseInt(m[1], 10);
+      const rawM = m[2] ? parseInt(m[2], 10) : 0;
+      if (rawH < 0 || rawH > 12 || rawM > 59) return { invalid: true, matchText: m[0] };
+      return { hour: (rawH % 12) + 12, minute: rawM, matchText: m[0] };
     }
     if ((m = text.match(/(\d{1,2})時\s*(\d{1,2})分/))) {
-      return { hour: parseInt(m[1], 10), minute: parseInt(m[2], 10), matchText: m[0] };
+      const rawH = parseInt(m[1], 10);
+      const rawM = parseInt(m[2], 10);
+      if (rawH > 23 || rawM > 59) return { invalid: true, matchText: m[0] };
+      return { hour: rawH, minute: rawM, matchText: m[0] };
     }
     if ((m = text.match(/(\d{1,2})時/))) {
-      return { hour: parseInt(m[1], 10), minute: 0, matchText: m[0] };
+      const rawH = parseInt(m[1], 10);
+      if (rawH > 23) return { invalid: true, matchText: m[0] };
+      return { hour: rawH, minute: 0, matchText: m[0] };
     }
     return null;
   }
@@ -1671,20 +1728,30 @@
   }
 
   // 時刻表現を抽出する(英語)。「at」が前についていれば一緒に取り除く。
+  // 範囲外の時刻(25:00 など)は自動補正せず、invalid として返す。
   function extractTimeEN(text) {
     let m;
     if ((m = text.match(/\b(?:at\s+)?(\d{1,2}):(\d{2})\s*(am|pm)\b/i))) {
-      let h = parseInt(m[1], 10) % 12;
+      const rawH = parseInt(m[1], 10);
+      const rawM = parseInt(m[2], 10);
+      if (rawH < 1 || rawH > 12 || rawM > 59) return { invalid: true, matchText: m[0] };
+      let h = rawH % 12;
       if (/pm/i.test(m[3])) h += 12;
-      return { hour: h, minute: parseInt(m[2], 10), matchText: m[0] };
+      return { hour: h, minute: rawM, matchText: m[0] };
     }
     if ((m = text.match(/\b(?:at\s+)?(\d{1,2})\s*(am|pm)\b/i))) {
-      let h = parseInt(m[1], 10) % 12;
+      const rawH = parseInt(m[1], 10);
+      if (rawH < 1 || rawH > 12) return { invalid: true, matchText: m[0] };
+      let h = rawH % 12;
       if (/pm/i.test(m[2])) h += 12;
       return { hour: h, minute: 0, matchText: m[0] };
     }
     if ((m = text.match(/\b(?:at\s+)?([01]?\d|2[0-3]):([0-5]\d)\b/))) {
       return { hour: parseInt(m[1], 10), minute: parseInt(m[2], 10), matchText: m[0] };
+    }
+    // 24:00以上や分が60以上など、上のパターンに一致しない範囲外の時刻表記を明示的に検出する
+    if ((m = text.match(/\b(?:at\s+)?(\d{1,2}):(\d{2})\b/))) {
+      return { invalid: true, matchText: m[0] };
     }
     return null;
   }
@@ -1756,6 +1823,9 @@
 
     // 1. 時刻を抽出して取り除く
     const timeMatch = extractTime(textAfterTarget);
+    if (timeMatch && timeMatch.invalid) {
+      return { ok: false, reason: 'invalid-time', invalidText: timeMatch.matchText };
+    }
     let textAfterTime = textAfterTarget;
     if (timeMatch) {
       textAfterTime = textAfterTarget.replace(timeMatch.matchText, '').replace(/^に/, '');
@@ -1886,6 +1956,9 @@
 
     // 1. 時刻を抽出して取り除く("at"も一緒に)
     const timeMatch = extractTimeEN(textAfterTarget);
+    if (timeMatch && timeMatch.invalid) {
+      return { ok: false, reason: 'invalid-time', invalidText: timeMatch.matchText };
+    }
     let textAfterTime = textAfterTarget;
     if (timeMatch) {
       textAfterTime = textAfterTarget.replace(timeMatch.matchText, ' ');
@@ -2072,6 +2145,12 @@
 
       if (!result.ok && result.reason === 'ambiguous') {
         showClarify(result.message, text);
+        return;
+      }
+      if (!result.ok && result.reason === 'invalid-time') {
+        showToast(t('naturalInvalidTime').replace('{text}', result.invalidText));
+        clarifyCard.style.display = 'none';
+        resultCard.style.display = 'none';
         return;
       }
       if (!result.ok) {

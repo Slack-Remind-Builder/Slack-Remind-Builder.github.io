@@ -435,6 +435,8 @@ button, input, select, textarea {
 .cal-day.is-today { font-weight: 800; color: var(--accent); }
 .cal-day.is-selected { background: var(--accent); color: var(--accent-contrast); font-weight: 700; }
 .cal-day.is-empty { cursor: default; visibility: hidden; }
+.cal-day.is-past { opacity: 0.3; cursor: not-allowed; text-decoration: line-through; }
+.cal-day.is-past:hover { background: transparent; }
 
 .schedule-block { padding-top: 4px; }
 
