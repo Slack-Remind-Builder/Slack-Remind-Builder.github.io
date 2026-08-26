@@ -31,7 +31,7 @@
   --border: #E4E4E7;
   --text: #18181B;
   --text-muted: #52525B;
-  --text-faint: #A1A1AA;
+  --text-faint: #6B6B75;
 
   --accent: #5B4FE9;
   --accent-hover: #4A3FD1;
@@ -46,11 +46,11 @@
   /* token colors — the signature system */
   --tok-command: #5B4FE9;   /* /remind */
   --tok-command-soft: #EDEBFC;
-  --tok-target: #EA580C;    /* who */
+  --tok-target: #C2410C;    /* who */
   --tok-target-soft: #FFF1E8;
-  --tok-message: #16A34A;   /* what */
+  --tok-message: #15803D;   /* what */
   --tok-message-soft: #F0FDF4;
-  --tok-frequency: #CA8A04; /* every/in/next */
+  --tok-frequency: #92650A; /* every/in/next */
   --tok-frequency-soft: #FEF9E7;
   --tok-time: #2563EB;      /* at HH:MM */
   --tok-time-soft: #EFF4FE;
@@ -76,7 +76,7 @@ html.dark {
   --border: #3F3F46;
   --text: #FAFAFA;
   --text-muted: #A1A1AA;
-  --text-faint: #71717A;
+  --text-faint: #9C9CA8;
 
   --accent: #8C7FFF;
   --accent-hover: #A296FF;
