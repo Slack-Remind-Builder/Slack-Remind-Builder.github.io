@@ -360,6 +360,37 @@ button, input, select, textarea {
 
 .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); }
 
+/* ============ CUSTOM TIME PICKER (avoids native <input type=time> seconds-display quirks on some OS/browsers) ============ */
+.time-select {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-s);
+  padding: var(--space-1) var(--space-2);
+  width: fit-content;
+  transition: border-color 0.15s ease;
+}
+.time-select:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.time-select-input {
+  border: none;
+  background: transparent;
+  font-family: var(--font-mono);
+  font-size: var(--text-md);
+  font-weight: 700;
+  color: var(--text);
+  padding: var(--space-2);
+  cursor: pointer;
+}
+.time-select-input:focus { outline: none; }
+.time-select-input:disabled { color: var(--text-faint); cursor: not-allowed; }
+.time-select-sep { font-weight: 800; color: var(--text-faint); }
+
 /* ============ CUSTOM DATE PICKER (avoids native <input type=date> weekday-rendering quirks) ============ */
 .date-picker { position: relative; margin-top: var(--space-2); }
 .date-picker-trigger {

@@ -166,6 +166,8 @@
     defaultValueSuffix: { ja: '(初期値)', en: ' (default)' },
     calPrevMonth: { ja: '前の月', en: 'Previous month' },
     calNextMonth: { ja: '次の月', en: 'Next month' },
+    timeHourAriaLabel: { ja: '時', en: 'Hour' },
+    timeMinuteAriaLabel: { ja: '分', en: 'Minute' },
     toastTemplateApplied: { ja: '「{label}」を反映しました', en: '"{label}" applied' }
   };
 
@@ -775,6 +777,8 @@
   const EN_WEEKDAY_SHORT_BY_INDEX = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   let onceDatePickerCtrl = null;
   let yearDatePickerCtrl = null;
+  let onceTimeField = null;
+  let repeatTimeField = null;
 
   // 日付ピッカーのトリガー表示テキストを言語に応じて整形する
   function formatFullDateDisplay(year, month, day) {
@@ -795,6 +799,37 @@
    * mode: 'full'      -> 年月日をすべて扱う(1回のみの日付用、曜日を表示)
    *       'monthday'  -> 月日のみを扱う(毎年の繰り返し用、年・曜日は無視)
    * ------------------------------------------------------------------ */
+  // 時刻の hour/minute セレクトを、input[type=time] と同じ感覚で扱えるようラップする。
+  // ネイティブの <input type="time"> はOS/ブラウザによって秒の表示・入力を許してしまうことがある
+  // (step="60" を指定しても解決しないケースが確認されたため)、確実に分単位までしか
+  // 選べないセレクト式に置き換えている。
+  function createTimeSelectField(hourId, minuteId) {
+    const hourEl = document.getElementById(hourId);
+    const minuteEl = document.getElementById(minuteId);
+    if (hourEl.options.length === 0) {
+      for (let h = 0; h < 24; h++) hourEl.appendChild(new Option(pad2(h), pad2(h)));
+    }
+    if (minuteEl.options.length === 0) {
+      for (let m = 0; m < 60; m++) minuteEl.appendChild(new Option(pad2(m), pad2(m)));
+    }
+    const listeners = [];
+    function fireInput() { listeners.forEach(fn => fn()); }
+    hourEl.addEventListener('change', fireInput);
+    minuteEl.addEventListener('change', fireInput);
+
+    return {
+      get value() { return `${hourEl.value}:${minuteEl.value}`; },
+      set value(v) {
+        const [h, m] = (v || '09:00').split(':');
+        hourEl.value = h;
+        minuteEl.value = m;
+      },
+      get disabled() { return hourEl.disabled; },
+      set disabled(v) { hourEl.disabled = v; minuteEl.disabled = v; },
+      addEventListener(type, cb) { if (type === 'input') listeners.push(cb); }
+    };
+  }
+
   function createCalendarPicker({ triggerBtn, triggerTextEl, popoverEl, mode, onSelect }) {
     const today = new Date();
     let viewYear = today.getFullYear();
@@ -954,8 +989,12 @@
     const onceDateTrigger = document.getElementById('onceDateTrigger');
     const onceDateTriggerText = document.getElementById('onceDateTriggerText');
     const onceDatePopover = document.getElementById('onceDatePopover');
-    const onceTime = document.getElementById('onceTime');
-    const repeatTime = document.getElementById('repeatTime');
+    onceTimeField = createTimeSelectField('onceTimeHour', 'onceTimeMinute');
+    repeatTimeField = createTimeSelectField('repeatTimeHour', 'repeatTimeMinute');
+    onceTimeField.value = buildState.onceTime;
+    repeatTimeField.value = buildState.repeatTime;
+    const onceTime = onceTimeField;
+    const repeatTime = repeatTimeField;
     const messageError = document.getElementById('messageError');
 
     // 「毎月」用の日付セレクトの選択肢を組み立てる(毎年はカレンダーピッカーを使う)
@@ -1334,8 +1373,8 @@
     document.getElementById('targetChannel').value = '#';
     document.getElementById('targetUser').value = '';
     document.getElementById('messageInput').value = '';
-    document.getElementById('onceTime').value = '09:00';
-    document.getElementById('repeatTime').value = '09:00';
+    if (onceTimeField) onceTimeField.value = '09:00';
+    if (repeatTimeField) repeatTimeField.value = '09:00';
     document.querySelectorAll('.day-chip').forEach(c => setPressed(c, false));
     document.querySelectorAll('#targetType .seg-btn').forEach((b, i) => setPressed(b, i === 0));
     document.querySelectorAll('#scheduleType .seg-btn').forEach((b, i) => setPressed(b, i === 0));
@@ -1364,9 +1403,9 @@
     document.getElementById('targetHint').textContent = 'チャンネルの全員に向けてリマインドを送ります。「#」は自動的に付きます。';
     const onceDateTriggerEl = document.getElementById('onceDateTrigger');
     if (onceDateTriggerEl) onceDateTriggerEl.disabled = false;
-    document.getElementById('onceTime').disabled = false;
+    if (onceTimeField) onceTimeField.disabled = false;
     document.getElementById('repeatType').disabled = true;
-    document.getElementById('repeatTime').disabled = true;
+    if (repeatTimeField) repeatTimeField.disabled = true;
     document.querySelectorAll('.day-chip').forEach(c => { c.disabled = true; });
     if (monthDaySelectEl) monthDaySelectEl.disabled = true;
     const yearDateTriggerEl = document.getElementById('yearDateTrigger');
