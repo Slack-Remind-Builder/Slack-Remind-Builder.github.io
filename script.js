@@ -107,6 +107,7 @@
     toastReset: { ja: 'フォームをリセットしました', en: 'Form has been reset' },
     btnExplain: { ja: 'コマンドを分解して見る', en: 'Show breakdown' },
     btnExplainClose: { ja: 'コマンドの分解を閉じる', en: 'Hide breakdown' },
+    toastNaturalReset: { ja: '入力をリセットしました', en: 'Input has been reset' },
 
     learnDecomposeTitle: { ja: 'コマンドを分解してみよう', en: 'Break Down a Command' },
     learnDecomposeDesc: { ja: '下のコマンドの各パーツをクリックすると、意味が表示されます。', en: 'Click each part of the command below to see what it means.' },
@@ -335,14 +336,6 @@
     return `${pad2(h)}:${pad2(m)}`;
   }
 
-  // 今日を起点に daysFromToday 日後の日付を Slackコマンド用の絶対日付表記(on M/D/YYYY)にする
-  // (「today」「tomorrow」等の相対表現の代わりに使用する)
-  function absoluteDateFragment(daysFromToday) {
-    const now = new Date();
-    const target = new Date(now.getFullYear(), now.getMonth(), now.getDate() + daysFromToday);
-    return `on ${target.getMonth() + 1}/${target.getDate()}/${target.getFullYear()}`;
-  }
-
   function timeToLocale(timeStr) {
     if (!timeStr) return '';
     const [h, m] = timeStr.split(':').map(Number);
@@ -395,10 +388,17 @@
     parts.push({ type: 'message', text: `"${state.message.trim()}"`, desc: TOKEN_DESC.message });
 
     const time = state.onceTime || '09:00';
-    const target = state.onceDate
-      ? new Date(state.onceDate + 'T00:00:00')
-      : (() => { const t = new Date(); return new Date(t.getFullYear(), t.getMonth(), t.getDate()); })();
-    const dateFragment = `on ${target.getMonth() + 1}/${target.getDate()}/${target.getFullYear()}`;
+    let dateFragment = '';
+    if (state.onceDate) {
+      const today = new Date();
+      const target = new Date(state.onceDate + 'T00:00:00');
+      const diffDays = Math.round((target - new Date(today.getFullYear(), today.getMonth(), today.getDate())) / 86400000);
+      if (diffDays === 0) dateFragment = 'today';
+      else if (diffDays === 1) dateFragment = 'tomorrow';
+      else dateFragment = `on ${target.getMonth() + 1}/${target.getDate()}/${target.getFullYear()}`;
+    } else {
+      dateFragment = 'today';
+    }
     parts.push({ type: 'time', text: `${dateFragment} at ${time}`, desc: { ja: '実行される日時です。', en: 'The date and time the reminder runs.' } });
     return parts;
   }
@@ -691,6 +691,14 @@
           explainBtn.setAttribute('aria-expanded', 'false');
         }
       });
+    }
+
+    const resetBtn = node.querySelector('.btn-reset-card');
+    if (typeof options.onReset === 'function') {
+      resetBtn.textContent = t('btnReset');
+      resetBtn.addEventListener('click', options.onReset);
+    } else {
+      resetBtn.remove();
     }
 
     container.appendChild(node);
@@ -1227,7 +1235,7 @@
         document.getElementById('nextRunNote').textContent = '';
         return;
       }
-      renderCommandCard(output, result.parts, { hideExplainToggle: true });
+      renderCommandCard(output, result.parts, { hideExplainToggle: true, onReset: resetForm });
       explainCommand(result.parts, liveExplainBlock);
       renderNextRunPreview(buildState);
       persistFormState();
@@ -1935,15 +1943,15 @@
           freqLabel = '相対時間'; weekdayLabel = `${freqMatch.value}時間後`;
           break;
         case 'in-2-days':
-          fragment = absoluteDateFragment(2) + (time ? ` at ${time}` : '');
+          fragment = 'in 2 days' + (time ? ` at ${time}` : '');
           freqLabel = '1回のみ'; weekdayLabel = '明後日';
           break;
         case 'tomorrow':
-          fragment = absoluteDateFragment(1) + (time ? ` at ${time}` : '');
+          fragment = 'tomorrow' + (time ? ` at ${time}` : '');
           freqLabel = '1回のみ'; weekdayLabel = '明日';
           break;
         case 'today':
-          fragment = absoluteDateFragment(0) + (time ? ` at ${time}` : '');
+          fragment = 'today' + (time ? ` at ${time}` : '');
           freqLabel = '1回のみ'; weekdayLabel = '今日';
           break;
         case 'bare-weekday': {
@@ -1953,10 +1961,10 @@
           break;
         }
         default:
-          fragment = absoluteDateFragment(0) + (time ? ` at ${time}` : '');
+          fragment = time ? `today at ${time}` : 'today';
       }
     } else if (time) {
-      fragment = absoluteDateFragment(0) + ` at ${time}`;
+      fragment = `today at ${time}`;
       freqLabel = '1回のみ'; weekdayLabel = '今日';
     }
 
@@ -2067,15 +2075,15 @@
           freqLabel = t('freqRelative'); weekdayLabel = `${freqMatch.value}${t('hoursLater')}`;
           break;
         case 'in-2-days':
-          fragment = absoluteDateFragment(2) + (time ? ` at ${time}` : '');
+          fragment = 'in 2 days' + (time ? ` at ${time}` : '');
           freqLabel = t('freqOnce'); weekdayLabel = t('labelDayAfterTomorrow');
           break;
         case 'tomorrow':
-          fragment = absoluteDateFragment(1) + (time ? ` at ${time}` : '');
+          fragment = 'tomorrow' + (time ? ` at ${time}` : '');
           freqLabel = t('freqOnce'); weekdayLabel = t('labelTomorrow');
           break;
         case 'today':
-          fragment = absoluteDateFragment(0) + (time ? ` at ${time}` : '');
+          fragment = 'today' + (time ? ` at ${time}` : '');
           freqLabel = t('freqOnce'); weekdayLabel = t('labelToday');
           break;
         case 'bare-weekday': {
@@ -2085,10 +2093,10 @@
           break;
         }
         default:
-          fragment = absoluteDateFragment(0) + (time ? ` at ${time}` : '');
+          fragment = time ? `today at ${time}` : 'today';
       }
     } else if (time) {
-      fragment = absoluteDateFragment(0) + ` at ${time}`;
+      fragment = `today at ${time}`;
       freqLabel = t('freqOnce'); weekdayLabel = t('labelToday');
     }
 
@@ -2172,13 +2180,18 @@
       runParse(text);
     });
 
-    parseBtn.addEventListener('click', () => runParse(input.value));
-    clearBtn.addEventListener('click', () => {
+    function clearNatural(options = {}) {
       input.value = '';
       clarifyCard.style.display = 'none';
       resultCard.style.display = 'none';
-      input.focus();
-    });
+      parseResult.innerHTML = '';
+      naturalOutput.innerHTML = '';
+      if (options.focus !== false) input.focus();
+      if (options.toast) showToast(t('toastNaturalReset'));
+    }
+
+    parseBtn.addEventListener('click', () => runParse(input.value));
+    clearBtn.addEventListener('click', () => clearNatural());
 
     function runParse(text) {
       const result = parseNaturalLanguageEntry(text, getExplicitTarget());
@@ -2259,7 +2272,7 @@
         ]));
       });
 
-      renderCommandCard(naturalOutput, result.parts);
+      renderCommandCard(naturalOutput, result.parts, { onReset: () => clearNatural({ toast: true }) });
     }
 
     refreshNaturalUI = () => {

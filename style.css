@@ -560,6 +560,14 @@ button, input, select, textarea {
 }
 .btn-link:hover { text-decoration: underline; }
 
+.command-card-links {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  column-gap: var(--space-3);
+  row-gap: 4px;
+}
+
 /* ============ PREVIEW / COMMAND CARD ============ */
 .preview-col { display: flex; flex-direction: column; gap: 22px; }
 
