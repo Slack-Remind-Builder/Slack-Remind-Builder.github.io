@@ -335,6 +335,14 @@
     return `${pad2(h)}:${pad2(m)}`;
   }
 
+  // 今日を起点に daysFromToday 日後の日付を Slackコマンド用の絶対日付表記(on M/D/YYYY)にする
+  // (「today」「tomorrow」等の相対表現の代わりに使用する)
+  function absoluteDateFragment(daysFromToday) {
+    const now = new Date();
+    const target = new Date(now.getFullYear(), now.getMonth(), now.getDate() + daysFromToday);
+    return `on ${target.getMonth() + 1}/${target.getDate()}/${target.getFullYear()}`;
+  }
+
   function timeToLocale(timeStr) {
     if (!timeStr) return '';
     const [h, m] = timeStr.split(':').map(Number);
@@ -387,17 +395,10 @@
     parts.push({ type: 'message', text: `"${state.message.trim()}"`, desc: TOKEN_DESC.message });
 
     const time = state.onceTime || '09:00';
-    let dateFragment = '';
-    if (state.onceDate) {
-      const today = new Date();
-      const target = new Date(state.onceDate + 'T00:00:00');
-      const diffDays = Math.round((target - new Date(today.getFullYear(), today.getMonth(), today.getDate())) / 86400000);
-      if (diffDays === 0) dateFragment = 'today';
-      else if (diffDays === 1) dateFragment = 'tomorrow';
-      else dateFragment = `on ${target.getMonth() + 1}/${target.getDate()}/${target.getFullYear()}`;
-    } else {
-      dateFragment = 'today';
-    }
+    const target = state.onceDate
+      ? new Date(state.onceDate + 'T00:00:00')
+      : (() => { const t = new Date(); return new Date(t.getFullYear(), t.getMonth(), t.getDate()); })();
+    const dateFragment = `on ${target.getMonth() + 1}/${target.getDate()}/${target.getFullYear()}`;
     parts.push({ type: 'time', text: `${dateFragment} at ${time}`, desc: { ja: '実行される日時です。', en: 'The date and time the reminder runs.' } });
     return parts;
   }
@@ -1943,15 +1944,15 @@
           freqLabel = '相対時間'; weekdayLabel = `${freqMatch.value}時間後`;
           break;
         case 'in-2-days':
-          fragment = 'in 2 days' + (time ? ` at ${time}` : '');
+          fragment = absoluteDateFragment(2) + (time ? ` at ${time}` : '');
           freqLabel = '1回のみ'; weekdayLabel = '明後日';
           break;
         case 'tomorrow':
-          fragment = 'tomorrow' + (time ? ` at ${time}` : '');
+          fragment = absoluteDateFragment(1) + (time ? ` at ${time}` : '');
           freqLabel = '1回のみ'; weekdayLabel = '明日';
           break;
         case 'today':
-          fragment = 'today' + (time ? ` at ${time}` : '');
+          fragment = absoluteDateFragment(0) + (time ? ` at ${time}` : '');
           freqLabel = '1回のみ'; weekdayLabel = '今日';
           break;
         case 'bare-weekday': {
@@ -1961,10 +1962,10 @@
           break;
         }
         default:
-          fragment = time ? `today at ${time}` : 'today';
+          fragment = absoluteDateFragment(0) + (time ? ` at ${time}` : '');
       }
     } else if (time) {
-      fragment = `today at ${time}`;
+      fragment = absoluteDateFragment(0) + ` at ${time}`;
       freqLabel = '1回のみ'; weekdayLabel = '今日';
     }
 
@@ -2075,15 +2076,15 @@
           freqLabel = t('freqRelative'); weekdayLabel = `${freqMatch.value}${t('hoursLater')}`;
           break;
         case 'in-2-days':
-          fragment = 'in 2 days' + (time ? ` at ${time}` : '');
+          fragment = absoluteDateFragment(2) + (time ? ` at ${time}` : '');
           freqLabel = t('freqOnce'); weekdayLabel = t('labelDayAfterTomorrow');
           break;
         case 'tomorrow':
-          fragment = 'tomorrow' + (time ? ` at ${time}` : '');
+          fragment = absoluteDateFragment(1) + (time ? ` at ${time}` : '');
           freqLabel = t('freqOnce'); weekdayLabel = t('labelTomorrow');
           break;
         case 'today':
-          fragment = 'today' + (time ? ` at ${time}` : '');
+          fragment = absoluteDateFragment(0) + (time ? ` at ${time}` : '');
           freqLabel = t('freqOnce'); weekdayLabel = t('labelToday');
           break;
         case 'bare-weekday': {
@@ -2093,10 +2094,10 @@
           break;
         }
         default:
-          fragment = time ? `today at ${time}` : 'today';
+          fragment = absoluteDateFragment(0) + (time ? ` at ${time}` : '');
       }
     } else if (time) {
-      fragment = `today at ${time}`;
+      fragment = absoluteDateFragment(0) + ` at ${time}`;
       freqLabel = t('freqOnce'); weekdayLabel = t('labelToday');
     }
 
