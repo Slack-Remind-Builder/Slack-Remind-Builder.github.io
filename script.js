@@ -107,7 +107,6 @@
     toastReset: { ja: 'フォームをリセットしました', en: 'Form has been reset' },
     btnExplain: { ja: 'コマンドを分解して見る', en: 'Show breakdown' },
     btnExplainClose: { ja: 'コマンドの分解を閉じる', en: 'Hide breakdown' },
-    toastNaturalReset: { ja: '入力をリセットしました', en: 'Input has been reset' },
 
     learnDecomposeTitle: { ja: 'コマンドを分解してみよう', en: 'Break Down a Command' },
     learnDecomposeDesc: { ja: '下のコマンドの各パーツをクリックすると、意味が表示されます。', en: 'Click each part of the command below to see what it means.' },
@@ -670,6 +669,15 @@
     const isMac = /Mac|iPhone|iPad|iPod/i.test(navigator.platform || navigator.userAgent || '');
     pasteHintEl.textContent = isMac ? t('pasteHintMac') : t('pasteHintWin');
 
+    // 「貼り付けてください」の下のリセットボタン。呼び出し元が options.onReset を渡した場合のみ表示する
+    const resetBtn = node.querySelector('.btn-reset-command');
+    if (typeof options.onReset === 'function') {
+      resetBtn.textContent = t('btnReset');
+      resetBtn.addEventListener('click', options.onReset);
+    } else {
+      resetBtn.remove();
+    }
+
     const explainBtn = node.querySelector('.btn-explain');
     const explainBlock = node.querySelector('.explain-block');
     if (options.hideExplainToggle) {
@@ -691,14 +699,6 @@
           explainBtn.setAttribute('aria-expanded', 'false');
         }
       });
-    }
-
-    const resetBtn = node.querySelector('.btn-reset-card');
-    if (typeof options.onReset === 'function') {
-      resetBtn.textContent = t('btnReset');
-      resetBtn.addEventListener('click', options.onReset);
-    } else {
-      resetBtn.remove();
     }
 
     container.appendChild(node);
@@ -2180,18 +2180,15 @@
       runParse(text);
     });
 
-    function clearNatural(options = {}) {
+    function resetNatural() {
       input.value = '';
       clarifyCard.style.display = 'none';
       resultCard.style.display = 'none';
-      parseResult.innerHTML = '';
-      naturalOutput.innerHTML = '';
-      if (options.focus !== false) input.focus();
-      if (options.toast) showToast(t('toastNaturalReset'));
+      input.focus();
     }
 
     parseBtn.addEventListener('click', () => runParse(input.value));
-    clearBtn.addEventListener('click', () => clearNatural());
+    clearBtn.addEventListener('click', resetNatural);
 
     function runParse(text) {
       const result = parseNaturalLanguageEntry(text, getExplicitTarget());
@@ -2272,7 +2269,7 @@
         ]));
       });
 
-      renderCommandCard(naturalOutput, result.parts, { onReset: () => clearNatural({ toast: true }) });
+      renderCommandCard(naturalOutput, result.parts, { onReset: resetNatural });
     }
 
     refreshNaturalUI = () => {
